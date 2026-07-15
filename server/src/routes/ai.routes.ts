@@ -352,4 +352,59 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
   }
 });
 
+// Generar SQL query desde descripción en lenguaje natural
+router.post("/generate-sql", async (req: Request, res: Response) => {
+  const { prompt, sampleColumns, connectorType } = req.body ?? {};
+  if (!prompt || typeof prompt !== "string") {
+    return res.status(400).json({ error: "Campo requerido: prompt" });
+  }
+  if (
+    !connectorType ||
+    (connectorType !== "mysql" && connectorType !== "postgresql")
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'connectorType debe ser "mysql" o "postgresql"' });
+  }
+
+  const columns = Array.isArray(sampleColumns) ? sampleColumns : [];
+
+  const systemPrompt = `Eres un experto en SQL ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}.
+El usuario describe en lenguaje natural qué datos quiere, y tu tarea es generar una query SELECT SQL válida.
+
+${
+  columns.length > 0
+    ? `Columnas disponibles: ${columns.join(", ")}`
+    : "No hay información de columnas, pero intenta generar un query razonable basado en la descripción."
+}
+
+Reglas:
+- SOLO genera SELECT (nunca INSERT, UPDATE, DELETE, DROP, etc.)
+- La query debe ser sintácticamente correcta en ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}
+- Si no puedes generar un query válido, devuelve un query simple "SELECT 1 AS resultado" con una explicación del problema
+- La query debe ser corta y eficiente
+
+Responde SOLO con un objeto JSON:
+{
+  "query": "SELECT ... FROM ...",
+  "explanation": "breve explicación de lo que hace el query"
+}`;
+
+  try {
+    const result: any = await askGroqJson(systemPrompt, prompt);
+    const query =
+      typeof result?.query === "string"
+        ? result.query.trim()
+        : "SELECT 1 AS resultado";
+    const explanation =
+      typeof result?.explanation === "string"
+        ? result.explanation
+        : "Query generado por IA";
+
+    res.json({ query, explanation });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

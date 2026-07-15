@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Sparkles } from 'lucide-react'
 import {
   biApi,
   CONNECTOR_TYPE_LABELS,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/bi-api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { AiGenerateSqlDialog } from './ai-generate-sql-dialog'
 import {
   Card,
   CardContent,
@@ -113,6 +115,7 @@ export function Connectors() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [sqlDialogOpen, setSqlDialogOpen] = useState(false)
 
   const set = (field: keyof FormState) => (value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -387,7 +390,19 @@ export function Connectors() {
                     />
                   </div>
                   <div className='space-y-2'>
-                    <Label htmlFor='query'>{t('Query (SELECT only)')}</Label>
+                    <div className='flex items-center justify-between'>
+                      <Label htmlFor='query'>{t('Query (SELECT only)')}</Label>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => setSqlDialogOpen(true)}
+                        className='gap-1 h-8 text-xs'
+                      >
+                        <Sparkles className='size-3.5' />
+                        {t('Generate with AI')}
+                      </Button>
+                    </div>
                     <Textarea
                       id='query'
                       className='font-mono text-xs'
@@ -460,6 +475,18 @@ export function Connectors() {
           </div>
         </div>
       </Main>
+
+      <AiGenerateSqlDialog
+        open={sqlDialogOpen}
+        onOpenChange={setSqlDialogOpen}
+        connectorType={
+          form.type === 'mysql' || form.type === 'postgresql'
+            ? form.type
+            : 'mysql'
+        }
+        sampleColumns={[]}
+        onQuery={(query) => set('query')(query)}
+      />
     </>
   )
 }

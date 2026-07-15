@@ -29,6 +29,11 @@ export interface WidgetEditSuggestion {
   explanation: string
 }
 
+export interface SqlGeneration {
+  query: string
+  explanation: string
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}) as { error?: string })
@@ -54,5 +59,16 @@ export const aiApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dashboardId, widgetId, prompt }),
+    }).then((r) => handle(r)),
+
+  generateSql: (
+    prompt: string,
+    sampleColumns: string[],
+    connectorType: 'mysql' | 'postgresql'
+  ): Promise<SqlGeneration> =>
+    fetch('/api/ai/generate-sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, sampleColumns, connectorType }),
     }).then((r) => handle(r)),
 }
