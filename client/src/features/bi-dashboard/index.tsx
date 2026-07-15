@@ -109,7 +109,7 @@ export function BiDashboard() {
   }, [loadWidgets])
 
   const handleLayoutChange = (layout: Layout[]) => {
-    if (!selectedId || widgets.length === 0) return
+    if (!selectedId || widgets.length === 0 || !isEditing) return
     const changed = layout.some((l) => {
       const w = widgets.find((wi) => String(wi.id) === l.i)
       return (
