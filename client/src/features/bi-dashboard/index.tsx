@@ -236,8 +236,9 @@ export function BiDashboard() {
         {widgets.length > 0 && (
           <ResponsiveGridLayoutWithWidth
             className='layout'
-            layouts={{ lg: layout, md: layout, sm: layout, xs: layout }}
-            cols={{ lg: GRID_COLS, md: 8, sm: 4, xs: 2 }}
+            layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
+            cols={{ lg: GRID_COLS, md: 8, sm: 4, xs: 2, xxs: 1 }}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
             rowHeight={ROW_HEIGHT}
             isDraggable={isEditing}
             isResizable={isEditing}
