@@ -8,6 +8,7 @@ export type ConnectorType =
   | 'google_sheets'
   | 'mysql'
   | 'postgresql'
+  | 'csv'
 
 export interface Connector {
   id: number
@@ -28,6 +29,7 @@ export const CONNECTOR_TYPE_LABELS: Record<ConnectorType, string> = {
   google_sheets: 'Google Sheets',
   mysql: 'MySQL',
   postgresql: 'PostgreSQL',
+  csv: 'CSV File',
 }
 
 async function handle<T>(res: Response): Promise<T> {

@@ -11,11 +11,13 @@ export type ConnectorType =
   | "rest_api"
   | "google_sheets"
   | "mysql"
-  | "postgresql";
+  | "postgresql"
+  | "csv";
 
 export const CONNECTOR_TYPES: ConnectorType[] = [
   "rest_api",
   "google_sheets",
   "mysql",
   "postgresql",
+  "csv",
 ];

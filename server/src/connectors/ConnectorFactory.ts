@@ -3,6 +3,7 @@ import { RestAPIConnector } from "./RestAPI";
 import { GoogleSheetsConnector } from "./GoogleSheets";
 import { MySQLConnector } from "./MySQL";
 import { PostgreSQLConnector } from "./PostgreSQL";
+import { CSV } from "./CSV";
 
 export class ConnectorFactory {
   static create(type: ConnectorType, config: any): BaseConnector {
@@ -15,6 +16,8 @@ export class ConnectorFactory {
         return new MySQLConnector(config);
       case "postgresql":
         return new PostgreSQLConnector(config);
+      case "csv":
+        return new CSV(config);
       default:
         throw new Error(`Tipo de conector no soportado: ${type}`);
     }

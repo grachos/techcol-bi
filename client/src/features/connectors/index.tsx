@@ -55,6 +55,9 @@ type FormState = {
   password: string
   database: string
   query: string
+  // csv
+  csvData: string
+  csvFileName: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -73,6 +76,8 @@ const EMPTY_FORM: FormState = {
   password: '',
   database: '',
   query: '',
+  csvData: '',
+  csvFileName: '',
 }
 
 function buildConfig(form: FormState): Record<string, unknown> {
@@ -105,6 +110,10 @@ function buildConfig(form: FormState): Record<string, unknown> {
         database: form.database,
         query: form.query,
       }
+    case 'csv':
+      return {
+        csvData: form.csvData,
+      }
   }
 }
 
@@ -119,6 +128,26 @@ export function Connectors() {
 
   const set = (field: keyof FormState) => (value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const content = event.target?.result as string
+      const base64 = Buffer.from(content).toString('base64')
+      setForm((f) => ({
+        ...f,
+        csvData: base64,
+        csvFileName: file.name,
+      }))
+      toast.success(t('CSV loaded: {{fileName}}', { fileName: file.name }))
+    }
+    reader.onerror = () => {
+      toast.error(t('Error reading CSV file'))
+    }
+    reader.readAsText(file)
+  }
 
   const load = useCallback(async () => {
     try {
@@ -135,6 +164,10 @@ export function Connectors() {
   const handleCreate = async () => {
     if (!form.name.trim()) {
       toast.warning(t('Give the connector a name'))
+      return
+    }
+    if (form.type === 'csv' && !form.csvData) {
+      toast.warning(t('Upload a CSV file'))
       return
     }
     setSaving(true)
@@ -411,6 +444,27 @@ export function Connectors() {
                       onChange={(e) => set('query')(e.target.value)}
                     />
                   </div>
+                </>
+              )}
+
+              {form.type === 'csv' && (
+                <>
+                  <div className='space-y-2'>
+                    <Label htmlFor='csvFile'>{t('CSV File')}</Label>
+                    <Input
+                      id='csvFile'
+                      type='file'
+                      accept='.csv'
+                      onChange={handleCSVUpload}
+                    />
+                  </div>
+                  {form.csvFileName && (
+                    <div className='p-3 bg-muted rounded text-sm'>
+                      <p className='text-muted-foreground'>
+                        {t('File loaded: {{fileName}}', { fileName: form.csvFileName })}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

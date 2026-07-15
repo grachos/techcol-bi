@@ -46,6 +46,11 @@ export const es: Record<string, string> = {
   Password: 'Contraseña',
   Database: 'Base de datos',
   'Query (SELECT only)': 'Consulta (solo SELECT)',
+  'CSV File': 'Archivo CSV',
+  'File loaded: {{fileName}}': 'Archivo cargado: {{fileName}}',
+  'Upload a CSV file': 'Sube un archivo CSV',
+  'CSV loaded: {{fileName}}': 'CSV cargado: {{fileName}}',
+  'Error reading CSV file': 'Error al leer el archivo CSV',
   'Generate with AI': 'Generar con IA',
   'Generate SQL with AI': 'Generar SQL con IA',
   'Describe what data you want, and AI will generate the SELECT query.':
