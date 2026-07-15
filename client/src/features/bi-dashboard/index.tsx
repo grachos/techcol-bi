@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import GridLayout, { type Layout } from 'react-grid-layout'
+import GridLayout, { Responsive as ResponsiveGridLayout, type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+
+const ResponsiveGridLayoutWithWidth = WidthProvider(ResponsiveGridLayout)
 import { toast } from 'sonner'
 import { biApi, type Connector } from '@/lib/bi-api'
 import {
@@ -47,6 +49,7 @@ export function BiDashboard() {
   >()
   const [loading, setLoading] = useState(false)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const [isEditing, setIsEditing] = useState(false)
 
   const handleFilterChange = (
     column: string,
@@ -195,6 +198,8 @@ export function BiDashboard() {
             setAiEditSuggestion(undefined)
             setDialogOpen(true)
           }}
+          isEditing={isEditing}
+          onToggleEditing={setIsEditing}
         />
 
         {connectors.length > 0 && selectedId && (
@@ -229,36 +234,39 @@ export function BiDashboard() {
         )}
 
         {widgets.length > 0 && (
-          <div className='overflow-x-auto'>
-            <GridLayout
-              className='layout'
-              layout={layout}
-              cols={GRID_COLS}
-              rowHeight={ROW_HEIGHT}
-              width={GRID_WIDTH}
-              draggableHandle='.drag-handle'
-              onLayoutChange={handleLayoutChange}
-              margin={[12, 12]}
-            >
-              {widgets.map((widget) => (
-                <div key={widget.id}>
-                  <WidgetCard
-                    widget={widget}
-                    activeFilters={activeFilters}
-                    onFilterChange={handleFilterChange}
-                    onEdit={() => {
-                      setEditingWidget(widget)
-                      setAiSuggestion(undefined)
-                      setAiEditSuggestion(undefined)
-                      setDialogOpen(true)
-                    }}
-                    onAiEdit={() => setAiEditDialogWidget(widget)}
-                    onDelete={() => handleDeleteWidget(widget)}
-                  />
-                </div>
-              ))}
-            </GridLayout>
-          </div>
+          <ResponsiveGridLayoutWithWidth
+            className='layout'
+            layouts={{ lg: layout, md: layout, sm: layout, xs: layout }}
+            cols={{ lg: GRID_COLS, md: 8, sm: 4, xs: 2 }}
+            rowHeight={ROW_HEIGHT}
+            isDraggable={isEditing}
+            isResizable={isEditing}
+            draggableHandle={isEditing ? '.drag-handle' : undefined}
+            onLayoutChange={handleLayoutChange}
+            margin={[12, 12]}
+            containerPadding={[0, 0]}
+            compactType='vertical'
+            preventCollision={false}
+          >
+            {widgets.map((widget) => (
+              <div key={widget.id}>
+                <WidgetCard
+                  widget={widget}
+                  activeFilters={activeFilters}
+                  onFilterChange={handleFilterChange}
+                  onEdit={() => {
+                    setEditingWidget(widget)
+                    setAiSuggestion(undefined)
+                    setAiEditSuggestion(undefined)
+                    setDialogOpen(true)
+                  }}
+                  onAiEdit={() => setAiEditDialogWidget(widget)}
+                  onDelete={() => handleDeleteWidget(widget)}
+                  isEditing={isEditing}
+                />
+              </div>
+            ))}
+          </ResponsiveGridLayoutWithWidth>
         )}
       </Main>
 

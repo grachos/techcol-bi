@@ -585,6 +585,8 @@ export const es: Record<string, string> = {
   'Widget added': 'Widget agregado',
   'Edit widget': 'Editar widget',
   'Add widget': 'Agregar widget',
+  'Edit layout': 'Editar diseño',
+  'Save layout': 'Guardar diseño',
   'Sales by month': 'Ventas por mes',
   Connector: 'Conector',
   'Chart type': 'Tipo de gráfica',

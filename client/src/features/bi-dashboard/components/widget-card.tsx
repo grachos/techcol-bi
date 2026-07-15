@@ -84,6 +84,7 @@ interface WidgetCardProps {
   onEdit: () => void
   onAiEdit: () => void
   onDelete: () => void
+  isEditing: boolean
 }
 
 export function WidgetCard({
@@ -93,6 +94,7 @@ export function WidgetCard({
   onEdit,
   onAiEdit,
   onDelete,
+  isEditing,
 }: WidgetCardProps) {
   const { t } = useTranslation()
 
@@ -108,37 +110,39 @@ export function WidgetCard({
       )}
       style={isColoredCard ? { background: solid } : undefined}
     >
-      <CardHeader className='drag-handle flex-none cursor-move flex-row items-center justify-between space-y-0 py-3'>
+      <CardHeader className={cn('flex-none flex-row items-center justify-between space-y-0 py-3', isEditing && 'drag-handle cursor-move')}>
         <CardTitle className='truncate text-sm font-medium'>
           {widget.title}
         </CardTitle>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant='ghost'
-              size='icon'
-              className={cn(
-                'size-6 shrink-0',
-                isColoredCard && 'text-white hover:bg-white/20 hover:text-white'
-              )}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <MoreVertical size={14} />
-              <span className='sr-only'>{t('Widget options')}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end'>
-            <DropdownMenuItem onClick={onEdit}>
-              <Pencil className='size-3.5' /> {t('Edit')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onAiEdit}>
-              <Sparkles className='size-3.5' /> {t('Edit with AI')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDelete} variant='destructive'>
-              <Trash2 className='size-3.5' /> {t('Delete')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {isEditing && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant='ghost'
+                size='icon'
+                className={cn(
+                  'size-6 shrink-0',
+                  isColoredCard && 'text-white hover:bg-white/20 hover:text-white'
+                )}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <MoreVertical size={14} />
+                <span className='sr-only'>{t('Widget options')}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem onClick={onEdit}>
+                <Pencil className='size-3.5' /> {t('Edit')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onAiEdit}>
+                <Sparkles className='size-3.5' /> {t('Edit with AI')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDelete} variant='destructive'>
+                <Trash2 className='size-3.5' /> {t('Delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </CardHeader>
       <CardContent className='min-h-0 flex-1 pb-3'>
         {widget.kind === 'chart' && (

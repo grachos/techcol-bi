@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronsUpDown,
+  Edit3,
   Pencil,
   Plus,
+  Save,
   Search,
   Star,
   Trash2,
@@ -34,6 +36,8 @@ interface DashboardToolbarProps {
   onSelect: (id: number) => void
   onChanged: () => void
   onAddWidget: () => void
+  isEditing: boolean
+  onToggleEditing: (editing: boolean) => void
 }
 
 function parseTagsInput(raw: string): string[] {
@@ -49,6 +53,8 @@ export function DashboardToolbar({
   onSelect,
   onChanged,
   onAddWidget,
+  isEditing,
+  onToggleEditing,
 }: DashboardToolbarProps) {
   const { t } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -305,7 +311,25 @@ export function DashboardToolbar({
         <Plus size={16} /> {t('New dashboard')}
       </Button>
 
-      <Button className='ms-auto' onClick={onAddWidget} disabled={!selected}>
+      {isEditing ? (
+        <Button
+          className='ms-auto'
+          onClick={() => onToggleEditing(false)}
+        >
+          <Save size={16} /> {t('Save layout')}
+        </Button>
+      ) : (
+        <Button
+          variant='outline'
+          className='ms-auto'
+          onClick={() => onToggleEditing(true)}
+          disabled={!selected}
+        >
+          <Edit3 size={16} /> {t('Edit layout')}
+        </Button>
+      )}
+
+      <Button onClick={onAddWidget} disabled={!selected || !isEditing}>
         <Plus size={16} /> {t('Add widget')}
       </Button>
 
