@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { biApi } from '@/lib/bi-api'
 import { type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilterValue } from '@/lib/widget-filters'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-
-const ALL_VALUE = '__all__'
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 type Row = Record<string, unknown>
 
@@ -33,8 +33,9 @@ export function SelectFilterWidget({
 }: SelectFilterWidgetProps) {
   const { t } = useTranslation()
   const [rows, setRows] = useState<Row[]>([])
-  const [selected, setSelected] = useState(ALL_VALUE)
+  const [selectedValues, setSelectedValues] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [popoverOpen, setPopoverOpen] = useState(false)
 
   useEffect(() => {
     if (!widget.connectorId) return
@@ -59,12 +60,33 @@ export function SelectFilterWidget({
     return Array.from(values).sort()
   }, [rows, widget.filterColumn])
 
-  const handleChange = (value: string) => {
-    setSelected(value)
+  const handleToggleValue = (value: string) => {
+    const newSelected = new Set(selectedValues)
+    if (newSelected.has(value)) {
+      newSelected.delete(value)
+    } else {
+      newSelected.add(value)
+    }
+    setSelectedValues(newSelected)
+    updateFilter(newSelected)
+  }
+
+  const handleToggleAll = () => {
+    if (selectedValues.size === options.length) {
+      setSelectedValues(new Set())
+      updateFilter(new Set())
+    } else {
+      const newSelected = new Set(options)
+      setSelectedValues(newSelected)
+      updateFilter(newSelected)
+    }
+  }
+
+  const updateFilter = (values: Set<string>) => {
     if (!widget.filterColumn) return
     onChange(
       widget.filterColumn,
-      value === ALL_VALUE ? null : { type: 'select', values: [value] }
+      values.size === 0 ? null : { type: 'select', values: Array.from(values) }
     )
   }
 
@@ -84,21 +106,61 @@ export function SelectFilterWidget({
     )
   }
 
+  const isAllSelected = selectedValues.size === options.length
+  const displayText =
+    selectedValues.size === 0
+      ? t('All')
+      : selectedValues.size === 1
+        ? Array.from(selectedValues)[0]
+        : `${selectedValues.size} ${t('selected')}`
+
   return (
-    <div className='flex h-full flex-col items-center justify-center gap-2'>
-      <Select value={selected} onValueChange={handleChange}>
-        <SelectTrigger className='w-full'>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL_VALUE}>{t('All')}</SelectItem>
-          {options.map((opt) => (
-            <SelectItem key={opt} value={opt}>
-              {opt}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className='flex h-full flex-col items-center justify-center gap-3'>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant='outline'
+            className='w-full justify-between'
+          >
+            <span className='truncate'>{displayText}</span>
+            <ChevronDown className='size-4 opacity-50 shrink-0' />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className='w-56 p-3' align='start'>
+          <div className='space-y-2'>
+            <div className='flex items-center gap-2 pb-2 border-b'>
+              <Checkbox
+                id='select-all'
+                checked={isAllSelected}
+                onCheckedChange={handleToggleAll}
+              />
+              <label
+                htmlFor='select-all'
+                className='text-sm font-medium cursor-pointer flex-1'
+              >
+                {t('All')}
+              </label>
+            </div>
+            <div className='max-h-48 space-y-1 overflow-y-auto'>
+              {options.map((opt) => (
+                <div key={opt} className='flex items-center gap-2'>
+                  <Checkbox
+                    id={`opt-${opt}`}
+                    checked={selectedValues.has(opt)}
+                    onCheckedChange={() => handleToggleValue(opt)}
+                  />
+                  <label
+                    htmlFor={`opt-${opt}`}
+                    className='text-sm cursor-pointer flex-1 truncate'
+                  >
+                    {opt}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
       <p className='text-muted-foreground text-xs'>
         {t('Filters column "{{column}}"', { column: widget.filterColumn })}
       </p>
