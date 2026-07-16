@@ -7,17 +7,17 @@ import 'react-resizable/css/styles.css'
 // con el ancho disponible, conservando siempre la disposicion original.
 const GridLayoutWithWidth = WidthProvider(GridLayout)
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
+import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Card, CardContent } from '@/components/ui/card'
 import { WidgetCard } from './widget-card'
-
-const GRID_COLS = 12
-const ROW_HEIGHT = 40
 
 interface DashboardViewProps {
   dashboard: any
 }
 
 export function DashboardView({ dashboard }: DashboardViewProps) {
+  const isMobile = useIsMobile()
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
 
   const handleFilterChange = (
@@ -35,7 +35,7 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
 
   const widgets = dashboard?.widgets || []
 
-  const layout: Layout[] = widgets.map((w: any) => ({
+  const desktopLayout: Layout[] = widgets.map((w: any) => ({
     i: String(w.id),
     x: w.layout.x,
     y: w.layout.y,
@@ -44,6 +44,8 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
     minW: 1,
     minH: 3,
   }))
+  const layout = isMobile ? stackLayoutForMobile(desktopLayout) : desktopLayout
+  const gridCols = isMobile ? 1 : GRID_COLS
 
   if (!widgets.length) {
     return (
@@ -61,7 +63,7 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
         <GridLayoutWithWidth
           className='layout'
           layout={layout}
-          cols={GRID_COLS}
+          cols={gridCols}
           rowHeight={ROW_HEIGHT}
           isDraggable={false}
           isResizable={false}

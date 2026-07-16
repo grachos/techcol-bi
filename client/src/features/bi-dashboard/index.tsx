@@ -18,6 +18,8 @@ import {
 } from '@/lib/dashboard-api'
 import { type WidgetEditSuggestion, type WidgetSuggestion } from '@/lib/ai-api'
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
+import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitch } from '@/components/language-switch'
@@ -32,11 +34,10 @@ import { DashboardToolbar } from './components/dashboard-toolbar'
 import { WidgetCard } from './components/widget-card'
 import { WidgetDialog } from './components/widget-dialog'
 
-const GRID_COLS = 12
-const ROW_HEIGHT = 40
 
 export function BiDashboard() {
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [widgets, setWidgets] = useState<Widget[]>([])
@@ -112,7 +113,8 @@ export function BiDashboard() {
   }, [loadWidgets])
 
   const handleLayoutChange = (layout: Layout[]) => {
-    if (!selectedId || widgets.length === 0 || !isEditing) return
+    // En movil el layout es la pila derivada de 1 columna: nunca persistirla
+    if (!selectedId || widgets.length === 0 || !isEditing || isMobile) return
     const changed = layout.some((l) => {
       const w = widgets.find((wi) => String(wi.id) === l.i)
       return (
@@ -160,7 +162,7 @@ export function BiDashboard() {
     }
   }
 
-  const layout: Layout[] = widgets.map((w) => ({
+  const desktopLayout: Layout[] = widgets.map((w) => ({
     i: String(w.id),
     x: w.layout.x,
     y: w.layout.y,
@@ -169,6 +171,8 @@ export function BiDashboard() {
     minW: 1,
     minH: 3,
   }))
+  const layout = isMobile ? stackLayoutForMobile(desktopLayout) : desktopLayout
+  const gridCols = isMobile ? 1 : GRID_COLS
 
   return (
     <>
@@ -240,11 +244,11 @@ export function BiDashboard() {
           <GridLayoutWithWidth
             className='layout'
             layout={layout}
-            cols={GRID_COLS}
+            cols={gridCols}
             rowHeight={ROW_HEIGHT}
-            isDraggable={isEditing}
-            isResizable={isEditing}
-            draggableHandle={isEditing ? '.drag-handle' : undefined}
+            isDraggable={isEditing && !isMobile}
+            isResizable={isEditing && !isMobile}
+            draggableHandle={isEditing && !isMobile ? '.drag-handle' : undefined}
             onLayoutChange={handleLayoutChange}
             margin={[12, 12]}
             containerPadding={[0, 0]}
