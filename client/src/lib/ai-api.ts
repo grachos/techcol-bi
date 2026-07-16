@@ -71,4 +71,36 @@ export const aiApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, sampleColumns, connectorType }),
     }).then((r) => handle(r)),
+
+  generateSqlWithSchema: (
+    prompt: string,
+    schemaDescription: string,
+    connectorType: 'mysql' | 'postgresql'
+  ): Promise<SqlGeneration> =>
+    fetch('/api/ai/generate-sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        schemaDescription,
+        connectorType,
+      }),
+    }).then((r) => handle(r)),
+
+  fixQuery: (
+    query: string,
+    error: string,
+    connectorType: 'mysql' | 'postgresql',
+    schema?: string
+  ): Promise<{ query: string; explanation: string }> =>
+    fetch('/api/ai/fix-query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        error,
+        connectorType,
+        schema,
+      }),
+    }).then((r) => handle(r)),
 }

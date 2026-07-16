@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { randomBytes } from "crypto";
 import { pool } from "../db";
 
 const router = Router();
@@ -454,6 +455,102 @@ router.delete("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Widget no encontrado" });
     }
     res.json({ deleted: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Generar o obtener link compartible del dashboard
+router.post("/:id/share", async (req: Request, res: Response) => {
+  try {
+    if (!(await assertDashboardOwnership(req.params.id))) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
+
+    // Verificar si ya existe un share token
+    const [existingShare]: any = await pool.query(
+      "SELECT share_token FROM dashboard_shares WHERE dashboard_id = ?",
+      [req.params.id]
+    );
+
+    if (existingShare.length > 0) {
+      return res.json({ shareToken: existingShare[0].share_token });
+    }
+
+    // Generar nuevo token único
+    const shareToken = randomBytes(32).toString("hex");
+
+    await pool.query(
+      "INSERT INTO dashboard_shares (dashboard_id, share_token) VALUES (?, ?)",
+      [req.params.id, shareToken]
+    );
+
+    res.json({ shareToken });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener dashboard compartido (acceso público sin autenticación)
+router.get("/share/:token", async (req: Request, res: Response) => {
+  try {
+    const [shareRows]: any = await pool.query(
+      "SELECT dashboard_id FROM dashboard_shares WHERE share_token = ?",
+      [req.params.token]
+    );
+
+    if (shareRows.length === 0) {
+      return res.status(404).json({ error: "Link compartible no válido" });
+    }
+
+    const dashboardId = shareRows[0].dashboard_id;
+
+    // Obtener dashboard
+    const [dashRows]: any = await pool.query(
+      "SELECT id, name, created_at FROM dashboards WHERE id = ?",
+      [dashboardId]
+    );
+
+    if (dashRows.length === 0) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
+
+    const dashboard = {
+      id: dashRows[0].id,
+      name: dashRows[0].name,
+      created_at: dashRows[0].created_at,
+      isShared: true,
+    };
+
+    // Obtener widgets
+    const [widgetRows]: any = await pool.query(
+      `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
+              w.x_key, w.y_key, w.aggregation, w.filter_column, w.layout,
+              c.name AS connector_name, c.type AS connector_type
+       FROM dashboard_widgets w
+       LEFT JOIN connectors c ON c.id = w.connector_id
+       WHERE w.dashboard_id = ?
+       ORDER BY w.id ASC`,
+      [dashboardId]
+    );
+
+    const widgets = (widgetRows as WidgetRow[]).map((w) => ({
+      id: w.id,
+      connectorId: w.connector_id,
+      connectorName: w.connector_name,
+      connectorType: w.connector_type,
+      kind: w.kind,
+      title: w.title,
+      chartType: w.chart_type,
+      color: w.color,
+      xKey: w.x_key,
+      yKey: w.y_key,
+      aggregation: w.aggregation,
+      filterColumn: w.filter_column,
+      layout: parseLayout(w.layout),
+    }));
+
+    res.json({ ...dashboard, widgets });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -7,6 +7,7 @@ import {
   Plus,
   Save,
   Search,
+  Share2,
   Star,
   Trash2,
 } from 'lucide-react'
@@ -29,6 +30,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ShareDashboardDialog } from './share-dashboard-dialog'
 
 interface DashboardToolbarProps {
   dashboards: DashboardSummary[]
@@ -64,6 +66,7 @@ export function DashboardToolbar({
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [name, setName] = useState('')
   const [tagsInput, setTagsInput] = useState('')
   const [saving, setSaving] = useState(false)
@@ -294,6 +297,15 @@ export function DashboardToolbar({
       <Button
         variant='outline'
         size='icon'
+        disabled={!selected}
+        onClick={() => setShareOpen(true)}
+        title={t('Share dashboard')}
+      >
+        <Share2 size={16} />
+      </Button>
+      <Button
+        variant='outline'
+        size='icon'
         disabled={!selected || dashboards.length <= 1}
         onClick={handleDelete}
         title={t('Delete dashboard')}
@@ -390,6 +402,15 @@ export function DashboardToolbar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selected && (
+        <ShareDashboardDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          dashboardId={selected.id}
+          dashboardName={selected.name}
+        />
+      )}
     </div>
   )
 }

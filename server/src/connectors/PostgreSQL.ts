@@ -60,4 +60,27 @@ export class PostgreSQLConnector extends BaseConnector {
       return false;
     }
   }
+
+  async getSchema(): Promise<{ tables: Array<{ name: string; columns: string[] }> }> {
+    return this.withClient(async (client) => {
+      const result = await client.query(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+      );
+      const tables = result.rows.map((r: any) => r.tablename);
+      const schemaResult: Array<{ name: string; columns: string[] }> = [];
+
+      for (const tableName of tables) {
+        const columnsResult = await client.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+          [tableName]
+        );
+        schemaResult.push({
+          name: tableName,
+          columns: columnsResult.rows.map((c: any) => c.column_name),
+        });
+      }
+
+      return { tables: schemaResult };
+    });
+  }
 }

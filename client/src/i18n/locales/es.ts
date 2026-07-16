@@ -51,7 +51,6 @@ export const es: Record<string, string> = {
   'Upload a CSV file': 'Sube un archivo CSV',
   'CSV loaded: {{fileName}}': 'CSV cargado: {{fileName}}',
   'Error reading CSV file': 'Error al leer el archivo CSV',
-  'Generate with AI': 'Generar con IA',
   'Generate SQL with AI': 'Generar SQL con IA',
   'Describe what data you want, and AI will generate the SELECT query.':
     'Describe qué datos quieres, y la IA generará la consulta SELECT.',
@@ -59,7 +58,10 @@ export const es: Record<string, string> = {
   'e.g., sales by month where amount > 1000, sorted by date desc':
     'ej. ventas por mes donde cantidad > 1000, ordenado por fecha desc',
   'Available columns': 'Columnas disponibles',
-  'Generating…': 'Generando…',
+  'Available tables': 'Tablas disponibles',
+  'Loading database schema…': 'Cargando schema de la base de datos…',
+  'Complete the connection details (host, user, password, database) before using AI SQL generation':
+    'Completa los detalles de conexión (host, usuario, contraseña, base de datos) antes de usar la generación de SQL por IA',
   'Generate': 'Generar',
   'Generated Query': 'Consulta Generada',
   'Explanation': 'Explicación',
@@ -77,8 +79,45 @@ export const es: Record<string, string> = {
   '"{{name}}" connects successfully': '"{{name}}" conecta correctamente',
   '"{{name}}" could not connect': '"{{name}}" no pudo conectar',
   'Connector "{{name}}" deleted': 'Conector "{{name}}" eliminado',
+  'Connector "{{name}}" updated': 'Conector "{{name}}" actualizado',
+  'Edit Connector': 'Editar conector',
+  'Update connector details and configuration': 'Actualiza los detalles y configuración del conector',
+  'Save Changes': 'Guardar cambios',
+  'Preview': 'Vista Previa',
+  'Preview Query': 'Vista Previa de Consulta',
+  'Execute the query with a limit of 10 rows to see if it works': 'Ejecuta la consulta con un límite de 10 filas para verificar si funciona',
+  'Note: Queries will be executed with a LIMIT of 10 rows for preview': 'Nota: Las consultas se ejecutarán con un LIMIT de 10 filas para la vista previa',
+  'Execute Preview': 'Ejecutar Vista Previa',
+  'Executing…': 'Ejecutando…',
+  'Query executed successfully. {{count}} rows returned.': 'Consulta ejecutada correctamente. Se devolvieron {{count}} filas.',
+  'Results': 'Resultados',
+  'Query returned no results': 'La consulta no devolvió resultados',
+  'Try Again': 'Intentar de nuevo',
+  'Common issues:': 'Problemas comunes:',
+  'Column name does not exist in the table': 'El nombre de la columna no existe en la tabla',
+  'Table does not exist or was misspelled': 'La tabla no existe o tiene un error de ortografía',
+  'Database connection failed': 'Error de conexión con la base de datos',
+  'SQL syntax error in the query': 'Error de sintaxis SQL en la consulta',
+  'AI suggested a fix for your query': 'La IA sugirió un fix para tu consulta',
+  'Original Query': 'Consulta Original',
+  'Suggested Query': 'Consulta Sugerida',
+  'Reject': 'Rechazar',
+  'Accept & Update': 'Aceptar y Actualizar',
+  'Suggesting…': 'Sugiriendo…',
+  'Suggest Fix with AI': 'Sugerir Fix con IA',
+  'Query updated with suggestion': 'Consulta actualizada con la sugerencia',
+  'CSV connectors are read-only. The file is stored as base64 in the database.':
+    'Los conectores CSV son de solo lectura. El archivo se almacena como base64 en la base de datos.',
   'Could not load connectors: {{error}}':
     'No se pudieron cargar los conectores: {{error}}',
+  'Chained authentication': 'Autenticación encadenada',
+  'Authentication URL': 'URL de autenticación',
+  'Authentication method': 'Método de autenticación',
+  'Token path in response': 'Ruta del token en la respuesta',
+  'Authentication body (JSON)': 'Cuerpo de autenticación (JSON)',
+  'Authentication headers (JSON)': 'Headers de autenticación (JSON)',
+  'Header key for token': 'Clave del header para el token',
+  'Token prefix': 'Prefijo del token',
 
   // ── Panel BI ─────────────────────────────────────────────
   'Real-time data from your connectors.':
@@ -710,4 +749,23 @@ export const es: Record<string, string> = {
   'Region column (country)': 'Columna de región (país)',
   'No matching regions. The region column should hold country names.':
     'Sin regiones coincidentes. La columna de región debe contener nombres de países.',
+
+  // ── Dashboards compartibles (shareable) ────────────────────
+  'Share dashboard': 'Compartir tablero',
+  'Compartir Dashboard': 'Compartir Dashboard',
+  'Crea un link público para que otros vean "{{dashboardName}}" en modo de solo lectura':
+    'Crea un link público para que otros vean "{{dashboardName}}" en modo de solo lectura',
+  'Generar Link de Compartir': 'Generar Link de Compartir',
+  'Generando...': 'Generando...',
+  'Link público': 'Link público',
+  'Permisos en vista compartida:': 'Permisos en vista compartida:',
+  'Vista de solo lectura • Los cambios no se guardarán':
+    'Vista de solo lectura • Los cambios no se guardarán',
+  'Dashboard no encontrado': 'Dashboard no encontrado',
+  'El link de compartir puede haber expirado o ser inválido':
+    'El link de compartir puede haber expirado o ser inválido',
+  'Error al cargar el dashboard compartido':
+    'Error al cargar el dashboard compartido',
+  'Por favor, intenta con un link diferente':
+    'Por favor, intenta con un link diferente',
 }

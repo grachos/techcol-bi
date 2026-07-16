@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, AlertCircle } from 'lucide-react'
 import { aiApi } from '@/lib/ai-api'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,12 +13,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface AiGenerateSqlDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   connectorType: 'mysql' | 'postgresql'
-  sampleColumns: string[]
+  host: string
+  port: string
+  user: string
+  password: string
+  database: string
   onQuery: (query: string) => void
 }
 
@@ -26,13 +31,62 @@ export function AiGenerateSqlDialog({
   open,
   onOpenChange,
   connectorType,
-  sampleColumns,
+  host,
+  port,
+  user,
+  password,
+  database,
   onQuery,
 }: AiGenerateSqlDialogProps) {
   const { t } = useTranslation()
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<{ query: string; explanation: string } | null>(null)
+  const [schema, setSchema] = useState<{ tables: Array<{ name: string; columns: string[] }> } | null>(null)
+  const [schemaLoading, setSchemaLoading] = useState(false)
+  const [schemaError, setSchemaError] = useState<string | null>(null)
+
+  const connectionComplete =
+    host.trim() && user.trim() && database.trim()
+
+  useEffect(() => {
+    if (!open || !connectionComplete) {
+      setSchema(null)
+      setSchemaError(null)
+      return
+    }
+
+    const fetchSchema = async () => {
+      setSchemaLoading(true)
+      setSchemaError(null)
+      try {
+        const res = await fetch('/api/ai/get-schema', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host,
+            port: port ? Number(port) : undefined,
+            user,
+            password,
+            database,
+            type: connectorType,
+          }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || `Error ${res.status}`)
+        }
+        const data = await res.json()
+        setSchema(data)
+      } catch (error) {
+        setSchemaError(String(error instanceof Error ? error.message : error))
+      } finally {
+        setSchemaLoading(false)
+      }
+    }
+
+    fetchSchema()
+  }, [open, host, port, user, password, database, connectorType, connectionComplete])
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -41,7 +95,16 @@ export function AiGenerateSqlDialog({
     }
     setGenerating(true)
     try {
-      const res = await aiApi.generateSql(prompt, sampleColumns, connectorType)
+      const schemaDescription = schema
+        ? schema.tables
+            .map((t) => `${t.name}: [${t.columns.join(', ')}]`)
+            .join('\n')
+        : ''
+      const res = await aiApi.generateSqlWithSchema(
+        prompt,
+        schemaDescription,
+        connectorType
+      )
       setResult(res)
     } catch (error) {
       toast.error(String(error instanceof Error ? error.message : error))
@@ -72,7 +135,23 @@ export function AiGenerateSqlDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!result ? (
+        {!connectionComplete ? (
+          <Alert variant='destructive'>
+            <AlertCircle className='size-4' />
+            <AlertDescription>
+              {t('Complete the connection details (host, user, password, database) before using AI SQL generation')}
+            </AlertDescription>
+          </Alert>
+        ) : schemaError ? (
+          <Alert variant='destructive'>
+            <AlertCircle className='size-4' />
+            <AlertDescription>{schemaError}</AlertDescription>
+          </Alert>
+        ) : schemaLoading ? (
+          <div className='text-center py-8 text-muted-foreground'>
+            {t('Loading database schema…')}
+          </div>
+        ) : !result ? (
           <div className='space-y-4'>
             <div className='space-y-2'>
               <label className='text-sm font-medium'>
@@ -88,9 +167,16 @@ export function AiGenerateSqlDialog({
               />
             </div>
 
-            {sampleColumns.length > 0 && (
-              <div className='text-xs text-muted-foreground p-2 bg-muted rounded'>
-                <strong>{t('Available columns')}:</strong> {sampleColumns.join(', ')}
+            {schema && schema.tables.length > 0 && (
+              <div className='text-xs text-muted-foreground p-2 bg-muted rounded max-h-32 overflow-y-auto'>
+                <strong>{t('Available tables')}:</strong>
+                <div className='mt-1 space-y-1'>
+                  {schema.tables.map((table) => (
+                    <div key={table.name}>
+                      <strong>{table.name}</strong>: {table.columns.join(', ')}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -102,7 +188,10 @@ export function AiGenerateSqlDialog({
               >
                 {t('Cancel')}
               </Button>
-              <Button onClick={handleGenerate} disabled={generating}>
+              <Button
+                onClick={handleGenerate}
+                disabled={generating || !schema || schema.tables.length === 0}
+              >
                 {generating ? t('Generating…') : t('Generate')}
               </Button>
             </DialogFooter>

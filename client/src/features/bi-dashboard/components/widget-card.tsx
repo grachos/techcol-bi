@@ -82,9 +82,10 @@ interface WidgetCardProps {
   activeFilters: ActiveFilters
   onFilterChange: (column: string, value: ActiveFilterValue | null) => void
   onEdit: () => void
-  onAiEdit: () => void
+  onAiEdit?: () => void
   onDelete: () => void
   isEditing: boolean
+  isSharedView?: boolean
 }
 
 export function WidgetCard({
@@ -95,6 +96,7 @@ export function WidgetCard({
   onAiEdit,
   onDelete,
   isEditing,
+  isSharedView = false,
 }: WidgetCardProps) {
   const { t } = useTranslation()
 
@@ -105,28 +107,28 @@ export function WidgetCard({
   return (
     <Card
       className={cn(
-        'flex h-full flex-col overflow-hidden',
+        'flex h-full flex-col overflow-hidden gap-0',
         isColoredCard && 'border-transparent text-white'
       )}
       style={isColoredCard ? { background: solid } : undefined}
     >
-      <CardHeader className={cn('flex-none flex-row items-center justify-between space-y-0 py-3', isEditing && 'drag-handle cursor-move')}>
-        <CardTitle className='truncate text-sm font-medium'>
+      <CardHeader className={cn('flex-shrink-0 flex-row items-center justify-between space-y-0 px-2 py-0.5 gap-0.5 min-w-0', isEditing && !isSharedView && 'drag-handle cursor-move')}>
+        <CardTitle className='truncate text-xs font-medium leading-none flex-1 min-w-0'>
           {widget.title}
         </CardTitle>
-        {isEditing && (
+        {isEditing && !isSharedView && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant='ghost'
                 size='icon'
                 className={cn(
-                  'size-6 shrink-0',
+                  'size-5 shrink-0 p-0',
                   isColoredCard && 'text-white hover:bg-white/20 hover:text-white'
                 )}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <MoreVertical size={14} />
+                <MoreVertical size={16} />
                 <span className='sr-only'>{t('Widget options')}</span>
               </Button>
             </DropdownMenuTrigger>
@@ -134,9 +136,11 @@ export function WidgetCard({
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className='size-3.5' /> {t('Edit')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onAiEdit}>
-                <Sparkles className='size-3.5' /> {t('Edit with AI')}
-              </DropdownMenuItem>
+              {onAiEdit && (
+                <DropdownMenuItem onClick={onAiEdit}>
+                  <Sparkles className='size-3.5' /> {t('Edit with AI')}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={onDelete} variant='destructive'>
                 <Trash2 className='size-3.5' /> {t('Delete')}
               </DropdownMenuItem>
@@ -144,7 +148,7 @@ export function WidgetCard({
           </DropdownMenu>
         )}
       </CardHeader>
-      <CardContent className='min-h-0 flex-1 pb-3'>
+      <CardContent className='min-h-0 flex-1 px-2 py-1'>
         {widget.kind === 'chart' && (
           <ChartWidgetBody widget={widget} activeFilters={activeFilters} />
         )}

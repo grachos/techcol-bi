@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import GridLayout, { Responsive as ResponsiveGridLayout, type Layout, WidthProvider } from 'react-grid-layout'
+import { Responsive as ResponsiveGridLayout, type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
@@ -30,7 +30,6 @@ import { WidgetDialog } from './components/widget-dialog'
 
 const GRID_COLS = 12
 const ROW_HEIGHT = 40
-const GRID_WIDTH = 1200
 
 export function BiDashboard() {
   const { t } = useTranslation()
@@ -163,7 +162,7 @@ export function BiDashboard() {
     y: w.layout.y,
     w: w.layout.w,
     h: w.layout.h,
-    minW: 2,
+    minW: 1,
     minH: 3,
   }))
 

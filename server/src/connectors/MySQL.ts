@@ -57,4 +57,27 @@ export class MySQLConnector extends BaseConnector {
       return false;
     }
   }
+
+  async getSchema(): Promise<{ tables: Array<{ name: string; columns: string[] }> }> {
+    return this.withConnection(async (conn) => {
+      const [tables]: any = await conn.query(
+        `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE()`
+      );
+      const result: Array<{ name: string; columns: string[] }> = [];
+
+      for (const table of tables) {
+        const tableName = table.TABLE_NAME;
+        const [columns]: any = await conn.query(
+          `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+          [tableName]
+        );
+        result.push({
+          name: tableName,
+          columns: columns.map((c: any) => c.COLUMN_NAME),
+        });
+      }
+
+      return { tables: result };
+    });
+  }
 }

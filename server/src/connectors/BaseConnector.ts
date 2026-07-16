@@ -5,6 +5,9 @@
 export abstract class BaseConnector {
   abstract fetchData(): Promise<unknown>;
   abstract testConnection(): Promise<boolean>;
+
+  // Opcional: obtener schema (tablas y columnas) de la BD
+  async getSchema?(): Promise<{ tables: Array<{ name: string; columns: string[] }> }>;
 }
 
 export type ConnectorType =
@@ -12,7 +15,9 @@ export type ConnectorType =
   | "google_sheets"
   | "mysql"
   | "postgresql"
-  | "csv";
+  | "csv"
+  | "excel"
+  | "excel_cloud";
 
 export const CONNECTOR_TYPES: ConnectorType[] = [
   "rest_api",
@@ -20,4 +25,6 @@ export const CONNECTOR_TYPES: ConnectorType[] = [
   "mysql",
   "postgresql",
   "csv",
+  "excel",
+  "excel_cloud",
 ];

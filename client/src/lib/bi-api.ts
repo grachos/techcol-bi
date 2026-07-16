@@ -9,6 +9,8 @@ export type ConnectorType =
   | 'mysql'
   | 'postgresql'
   | 'csv'
+  | 'excel'
+  | 'excel_cloud'
 
 export interface Connector {
   id: number
@@ -30,6 +32,8 @@ export const CONNECTOR_TYPE_LABELS: Record<ConnectorType, string> = {
   mysql: 'MySQL',
   postgresql: 'PostgreSQL',
   csv: 'CSV File',
+  excel: 'Excel Manual',
+  excel_cloud: 'Excel en la Nube',
 }
 
 async function handle<T>(res: Response): Promise<T> {
@@ -44,6 +48,9 @@ export const biApi = {
   list: (): Promise<Connector[]> =>
     fetch('/api/connectors').then((r) => handle<Connector[]>(r)),
 
+  get: (id: number): Promise<Connector & { config: Record<string, unknown> }> =>
+    fetch(`/api/connectors/${id}`).then((r) => handle(r)),
+
   create: (payload: {
     name: string
     type: ConnectorType
@@ -51,6 +58,19 @@ export const biApi = {
   }): Promise<{ id: number; name: string; type: ConnectorType }> =>
     fetch('/api/connectors', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then((r) => handle(r)),
+
+  update: (
+    id: number,
+    payload: {
+      name: string
+      config: Record<string, unknown>
+    }
+  ): Promise<{ id: number; name: string; type: ConnectorType }> =>
+    fetch(`/api/connectors/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).then((r) => handle(r)),
@@ -67,4 +87,31 @@ export const biApi = {
 
   data: (id: number): Promise<ConnectorData> =>
     fetch(`/api/connectors/${id}/data`).then((r) => handle(r)),
+
+  preview: (
+    id: number,
+    query: string
+  ): Promise<{
+    success: boolean
+    error?: string
+    columns: string[]
+    rows: Record<string, unknown>[]
+    rowCount: number
+  }> =>
+    fetch(`/api/connectors/${id}/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    }).then((r) => r.json()),
+
+  // Dashboard sharing
+  dashboard: {
+    share: (id: number): Promise<{ shareToken: string }> =>
+      fetch(`/api/dashboards/${id}/share`, { method: 'POST' }).then((r) =>
+        handle(r)
+      ),
+
+    getShared: (token: string) =>
+      fetch(`/api/dashboards/share/${token}`).then((r) => handle(r)),
+  },
 }

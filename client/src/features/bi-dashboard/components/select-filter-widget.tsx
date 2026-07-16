@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { biApi } from '@/lib/bi-api'
 import { type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilterValue } from '@/lib/widget-filters'

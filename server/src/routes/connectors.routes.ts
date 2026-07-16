@@ -35,6 +35,30 @@ router.get("/", async (_req: Request, res: Response) => {
   }
 });
 
+// Obtener un conector específico con su configuración desencriptada
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT id, name, type, config FROM connectors WHERE id = ? AND user_id = ?",
+      [req.params.id, DEMO_USER_ID]
+    );
+    const connector: ConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    const config = decryptConfig(parseStoredConfig(connector.config));
+    res.json({
+      id: connector.id,
+      name: connector.name,
+      type: connector.type,
+      config,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Crear conector: cifra las credenciales antes de guardar
 router.post("/", async (req: Request, res: Response) => {
   const { name, type, config } = req.body ?? {};
@@ -103,6 +127,94 @@ router.get("/:id/data", async (req: Request, res: Response) => {
     const data = await instance.fetchData();
 
     res.json({ id: connector.id, name: connector.name, type: connector.type, data });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Preview: ejecutar query con LIMIT para ver primeras filas o error
+router.post("/:id/preview", async (req: Request, res: Response) => {
+  const { query } = req.body ?? {};
+
+  if (!query || typeof query !== "string") {
+    return res.status(400).json({ error: "Campo requerido: query" });
+  }
+
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
+      [req.params.id, DEMO_USER_ID]
+    );
+    const connector: ConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    const config = decryptConfig(parseStoredConfig(connector.config));
+
+    // Para conectores de BD, agregar LIMIT a la query
+    let previewQuery = query;
+    if (connector.type === "mysql" || connector.type === "postgresql") {
+      // Evitar agregar LIMIT si ya lo tiene
+      if (!query.toUpperCase().includes("LIMIT")) {
+        previewQuery = `${query} LIMIT 10`;
+      }
+    }
+
+    // Crear conector con la query de preview
+    const previewConfig = { ...config, query: previewQuery };
+    const instance = ConnectorFactory.create(connector.type, previewConfig);
+    const data = await instance.fetchData();
+
+    // Extraer columnas de la primera fila
+    const firstRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    const columns = firstRow ? Object.keys(firstRow) : [];
+
+    res.json({
+      success: true,
+      columns,
+      rows: Array.isArray(data) ? data : [],
+      rowCount: Array.isArray(data) ? data.length : 0,
+    });
+  } catch (error: any) {
+    // Devolver el error como respuesta exitosa pero con indicador de error
+    res.json({
+      success: false,
+      error: error.message || "Error desconocido al ejecutar la query",
+      columns: [],
+      rows: [],
+      rowCount: 0,
+    });
+  }
+});
+
+// Editar conector
+router.put("/:id", async (req: Request, res: Response) => {
+  const { name, config } = req.body ?? {};
+
+  if (!name || !config) {
+    return res.status(400).json({ error: "Campos requeridos: name, config" });
+  }
+
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
+      [req.params.id, DEMO_USER_ID]
+    );
+    const connector: ConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    // Validar que la nueva config es utilizable
+    ConnectorFactory.create(connector.type, config);
+
+    const encrypted = encryptConfig(config);
+    await pool.query(
+      "UPDATE connectors SET name = ?, config = ? WHERE id = ? AND user_id = ?",
+      [name, JSON.stringify(encrypted), req.params.id, DEMO_USER_ID]
+    );
+    res.json({ id: connector.id, name, type: connector.type });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

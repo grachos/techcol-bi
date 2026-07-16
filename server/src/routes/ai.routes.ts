@@ -3,6 +3,8 @@ import { pool } from "../db";
 import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { ConnectorType } from "../connectors/BaseConnector";
+import { MySQLConnector } from "../connectors/MySQL";
+import { PostgreSQLConnector } from "../connectors/PostgreSQL";
 import { askGroqJson } from "../services/groq";
 
 const router = Router();
@@ -354,7 +356,7 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
 
 // Generar SQL query desde descripción en lenguaje natural
 router.post("/generate-sql", async (req: Request, res: Response) => {
-  const { prompt, sampleColumns, connectorType } = req.body ?? {};
+  const { prompt, sampleColumns, schemaDescription, connectorType } = req.body ?? {};
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "Campo requerido: prompt" });
   }
@@ -368,20 +370,25 @@ router.post("/generate-sql", async (req: Request, res: Response) => {
   }
 
   const columns = Array.isArray(sampleColumns) ? sampleColumns : [];
+  const schema = typeof schemaDescription === "string" ? schemaDescription : "";
 
   const systemPrompt = `Eres un experto en SQL ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}.
 El usuario describe en lenguaje natural qué datos quiere, y tu tarea es generar una query SELECT SQL válida.
 
 ${
-  columns.length > 0
+  schema
+    ? `Schema disponible (tablas y columnas):\n${schema}`
+    : columns.length > 0
     ? `Columnas disponibles: ${columns.join(", ")}`
-    : "No hay información de columnas, pero intenta generar un query razonable basado en la descripción."
+    : "No hay información de schema, pero intenta generar un query razonable basado en la descripción."
 }
 
 Reglas:
 - SOLO genera SELECT (nunca INSERT, UPDATE, DELETE, DROP, etc.)
 - La query debe ser sintácticamente correcta en ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}
-- Si no puedes generar un query válido, devuelve un query simple "SELECT 1 AS resultado" con una explicación del problema
+- SOLO usa tablas y columnas que existan en el schema proporcionado
+- Si el schema es proporcionado y el usuario pide columnas que no existen, ajusta la solicitud y explica el cambio
+- Si no puedes generar un query válido, devuelve un query simple "SELECT 1 AS resultado" con una explicación clara
 - La query debe ser corta y eficiente
 
 Responde SOLO con un objeto JSON:
@@ -402,6 +409,120 @@ Responde SOLO con un objeto JSON:
         : "Query generado por IA";
 
     res.json({ query, explanation });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Obtener schema (tablas y columnas) de una base de datos
+router.post("/get-schema", async (req: Request, res: Response) => {
+  const { host, port, user, password, database, type } = req.body ?? {};
+
+  if (!host || !user || !database || !type) {
+    return res
+      .status(400)
+      .json({ error: "Campos requeridos: host, user, database, type" });
+  }
+
+  if (type !== "mysql" && type !== "postgresql") {
+    return res
+      .status(400)
+      .json({ error: 'type debe ser "mysql" o "postgresql"' });
+  }
+
+  try {
+    // Crear conector solo para introspección (con query dummy)
+    let connector: any;
+    if (type === "mysql") {
+      connector = new MySQLConnector({
+        host,
+        port: port || 3306,
+        user,
+        password,
+        database,
+        query: "SELECT 1", // Dummy query, solo para pasar validación
+      });
+    } else {
+      connector = new PostgreSQLConnector({
+        host,
+        port: port || 5432,
+        user,
+        password,
+        database,
+        query: "SELECT 1", // Dummy query, solo para pasar validación
+      });
+    }
+
+    // Obtener schema
+    const schema = await connector.getSchema?.();
+    if (!schema) {
+      return res
+        .status(500)
+        .json({ error: "No se pudo obtener el schema de la base de datos" });
+    }
+
+    res.json(schema);
+  } catch (error: any) {
+    res.status(500).json({
+      error: error.message || "Error al conectar con la base de datos",
+    });
+  }
+});
+
+// Sugerir fix a una query que falla
+router.post("/fix-query", async (req: Request, res: Response) => {
+  const { query, error, schema, connectorType } = req.body ?? {};
+
+  if (!query || typeof query !== "string" || !error || typeof error !== "string") {
+    return res
+      .status(400)
+      .json({ error: "Campos requeridos: query, error" });
+  }
+
+  if (!connectorType || (connectorType !== "mysql" && connectorType !== "postgresql")) {
+    return res
+      .status(400)
+      .json({ error: 'connectorType debe ser "mysql" o "postgresql"' });
+  }
+
+  const schemaInfo = typeof schema === "string" ? schema : "";
+
+  const systemPrompt = `Eres un experto en SQL ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}.
+El usuario tiene una consulta que falló con un error.
+
+Tu tarea: analizar el error y sugerir una consulta corregida.
+
+Query original:
+${query}
+
+Error:
+${error}
+
+${schemaInfo ? `Schema disponible:\n${schemaInfo}` : ""}
+
+Reglas:
+- SOLO devuelve SELECT queries (nunca INSERT, UPDATE, DELETE, etc.)
+- La query debe ser sintácticamente correcta en ${connectorType === "mysql" ? "MySQL" : "PostgreSQL"}
+- Si el error menciona una columna inexistente, sugiere una alternativa del schema disponible
+- Si el error es por ortografía (ej: "junio" vs "June"), adapta al idioma de los datos
+- Si no puedes determinar el fix, devuelve la query original con una explicación
+
+Responde SOLO con un objeto JSON:
+{
+  "query": "SELECT ... corrected query ...",
+  "explanation": "breve explicación de lo que se corrigió y por qué"
+}`;
+
+  try {
+    const result: any = await askGroqJson(systemPrompt, "Por favor, sugiere un fix para esta query.");
+    const query_fixed =
+      typeof result?.query === "string" ? result.query.trim() : query;
+    const explanation =
+      typeof result?.explanation === "string"
+        ? result.explanation
+        : "Se sugirió un fix basado en el error";
+
+    res.json({ query: query_fixed, explanation });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

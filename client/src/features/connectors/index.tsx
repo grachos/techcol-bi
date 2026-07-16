@@ -35,6 +35,8 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { EditConnectorDialog } from './edit-connector-dialog'
+import { PreviewQueryDialog } from './preview-query-dialog'
 
 type FormState = {
   name: string
@@ -44,6 +46,14 @@ type FormState = {
   method: string
   headers: string
   dataPath: string
+  // rest_api - autenticación encadenada
+  authUrl: string
+  authMethod: string
+  authBody: string
+  authHeaders: string
+  authTokenPath: string
+  tokenHeaderKey: string
+  tokenHeaderPrefix: string
   // google_sheets
   spreadsheetId: string
   range: string
@@ -58,6 +68,16 @@ type FormState = {
   // csv
   csvData: string
   csvFileName: string
+  // excel (manual)
+  excelData: string
+  excelFileName: string
+  // excel y excel_cloud - múltiples hojas
+  excelSheets: string
+  excelRelationships: string
+  // excel_cloud
+  excelUrl: string
+  excelFileId: string
+  excelProvider: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -67,6 +87,13 @@ const EMPTY_FORM: FormState = {
   method: 'GET',
   headers: '',
   dataPath: '',
+  authUrl: '',
+  authMethod: 'POST',
+  authBody: '',
+  authHeaders: '',
+  authTokenPath: '',
+  tokenHeaderKey: 'Authorization',
+  tokenHeaderPrefix: 'Bearer ',
   spreadsheetId: '',
   range: '',
   serviceAccountKey: '',
@@ -78,6 +105,13 @@ const EMPTY_FORM: FormState = {
   query: '',
   csvData: '',
   csvFileName: '',
+  excelData: '',
+  excelFileName: '',
+  excelSheets: '',
+  excelRelationships: '',
+  excelUrl: '',
+  excelFileId: '',
+  excelProvider: 'google_drive',
 }
 
 function buildConfig(form: FormState): Record<string, unknown> {
@@ -87,19 +121,46 @@ function buildConfig(form: FormState): Record<string, unknown> {
       if (form.headers.trim()) {
         headers = JSON.parse(form.headers)
       }
+      let authHeaders: Record<string, string> | undefined
+      if (form.authHeaders.trim()) {
+        authHeaders = JSON.parse(form.authHeaders)
+      }
+      let authBody: Record<string, any> | undefined
+      if (form.authBody.trim()) {
+        authBody = JSON.parse(form.authBody)
+      }
       return {
         url: form.url,
         method: form.method,
         ...(headers ? { headers } : {}),
         ...(form.dataPath ? { dataPath: form.dataPath } : {}),
+        // Autenticación encadenada
+        ...(form.authUrl ? { authUrl: form.authUrl } : {}),
+        ...(form.authUrl ? { authMethod: form.authMethod } : {}),
+        ...(authBody ? { authBody } : {}),
+        ...(authHeaders ? { authHeaders } : {}),
+        ...(form.authTokenPath ? { authTokenPath: form.authTokenPath } : {}),
+        ...(form.tokenHeaderKey ? { tokenHeaderKey: form.tokenHeaderKey } : {}),
+        ...(form.tokenHeaderPrefix ? { tokenHeaderPrefix: form.tokenHeaderPrefix } : {}),
       }
     }
-    case 'google_sheets':
+    case 'google_sheets': {
+      let sheets: string[] | undefined
+      if (form.excelSheets.trim()) {
+        sheets = form.excelSheets.split(',').map(s => s.trim()).filter(Boolean)
+      }
+      let relationships: any[] | undefined
+      if (form.excelRelationships.trim()) {
+        relationships = JSON.parse(form.excelRelationships)
+      }
       return {
         spreadsheetId: form.spreadsheetId,
         ...(form.range ? { range: form.range } : {}),
         serviceAccountKey: form.serviceAccountKey,
+        ...(sheets ? { sheets } : {}),
+        ...(relationships ? { relationships } : {}),
       }
+    }
     case 'mysql':
     case 'postgresql':
       return {
@@ -114,6 +175,38 @@ function buildConfig(form: FormState): Record<string, unknown> {
       return {
         csvData: form.csvData,
       }
+    case 'excel': {
+      let sheets: string[] | undefined
+      if (form.excelSheets.trim()) {
+        sheets = form.excelSheets.split(',').map(s => s.trim()).filter(Boolean)
+      }
+      let relationships: any[] | undefined
+      if (form.excelRelationships.trim()) {
+        relationships = JSON.parse(form.excelRelationships)
+      }
+      return {
+        fileData: form.excelData,
+        ...(sheets ? { sheets } : {}),
+        ...(relationships ? { relationships } : {}),
+      }
+    }
+    case 'excel_cloud': {
+      let sheets: string[] | undefined
+      if (form.excelSheets.trim()) {
+        sheets = form.excelSheets.split(',').map(s => s.trim()).filter(Boolean)
+      }
+      let relationships: any[] | undefined
+      if (form.excelRelationships.trim()) {
+        relationships = JSON.parse(form.excelRelationships)
+      }
+      return {
+        ...(form.excelUrl ? { url: form.excelUrl } : {}),
+        ...(form.excelFileId ? { fileId: form.excelFileId } : {}),
+        provider: form.excelProvider,
+        ...(sheets ? { sheets } : {}),
+        ...(relationships ? { relationships } : {}),
+      }
+    }
   }
 }
 
@@ -125,6 +218,9 @@ export function Connectors() {
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [sqlDialogOpen, setSqlDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingConnector, setEditingConnector] = useState<(Connector & { config: Record<string, unknown> }) | null>(null)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
 
   const set = (field: keyof FormState) => (value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -135,7 +231,7 @@ export function Connectors() {
     const reader = new FileReader()
     reader.onload = (event) => {
       const content = event.target?.result as string
-      const base64 = Buffer.from(content).toString('base64')
+      const base64 = btoa(unescape(encodeURIComponent(content)))
       setForm((f) => ({
         ...f,
         csvData: base64,
@@ -147,6 +243,27 @@ export function Connectors() {
       toast.error(t('Error reading CSV file'))
     }
     reader.readAsText(file)
+  }
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const arrayBuffer = event.target?.result as ArrayBuffer
+      const bytes = new Uint8Array(arrayBuffer)
+      const base64 = btoa(String.fromCharCode.apply(null, Array.from(bytes)))
+      setForm((f) => ({
+        ...f,
+        excelData: base64,
+        excelFileName: file.name,
+      }))
+      toast.success(t('Excel loaded: {{fileName}}', { fileName: file.name }))
+    }
+    reader.onerror = () => {
+      toast.error(t('Error reading Excel file'))
+    }
+    reader.readAsArrayBuffer(file)
   }
 
   const load = useCallback(async () => {
@@ -168,6 +285,14 @@ export function Connectors() {
     }
     if (form.type === 'csv' && !form.csvData) {
       toast.warning(t('Upload a CSV file'))
+      return
+    }
+    if (form.type === 'excel' && !form.excelData) {
+      toast.warning(t('Upload an Excel file'))
+      return
+    }
+    if (form.type === 'excel_cloud' && !form.excelFileId && !form.excelUrl) {
+      toast.warning(t('Provide a file ID or URL'))
       return
     }
     setSaving(true)
@@ -207,6 +332,16 @@ export function Connectors() {
       toast.error(String(error instanceof Error ? error.message : error))
     } finally {
       setBusyId(null)
+    }
+  }
+
+  const handleEdit = async (c: Connector) => {
+    try {
+      const connectorData = await biApi.get(c.id)
+      setEditingConnector(connectorData)
+      setEditDialogOpen(true)
+    } catch (error) {
+      toast.error(String(error instanceof Error ? error.message : error))
     }
   }
 
@@ -328,6 +463,106 @@ export function Connectors() {
                       onChange={(e) => set('headers')(e.target.value)}
                     />
                   </div>
+
+                  {/* Autenticación encadenada */}
+                  <div className='border-t pt-4 mt-4'>
+                    <Label className='text-sm font-semibold mb-3 block'>
+                      {t('Chained authentication')} ({t('optional')})
+                    </Label>
+                    <div className='space-y-2'>
+                      <Label htmlFor='authUrl'>
+                        {t('Authentication URL')}
+                      </Label>
+                      <Input
+                        id='authUrl'
+                        placeholder='https://auth.ejemplo.com/token'
+                        value={form.authUrl}
+                        onChange={(e) => set('authUrl')(e.target.value)}
+                      />
+                    </div>
+                    <div className='grid gap-4 sm:grid-cols-2'>
+                      <div className='space-y-2'>
+                        <Label>{t('Authentication method')}</Label>
+                        <Select
+                          value={form.authMethod}
+                          onValueChange={set('authMethod')}
+                        >
+                          <SelectTrigger className='w-full'>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value='GET'>GET</SelectItem>
+                            <SelectItem value='POST'>POST</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='authTokenPath'>
+                          {t('Token path in response')}
+                        </Label>
+                        <Input
+                          id='authTokenPath'
+                          placeholder='access_token'
+                          value={form.authTokenPath}
+                          onChange={(e) => set('authTokenPath')(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='authBody'>
+                        {t('Authentication body (JSON)')}{' '}
+                        <span className='text-muted-foreground'>
+                          {t('(optional)')}
+                        </span>
+                      </Label>
+                      <Textarea
+                        id='authBody'
+                        placeholder='{"username": "usuario", "password": "contraseña"}'
+                        value={form.authBody}
+                        onChange={(e) => set('authBody')(e.target.value)}
+                        className='min-h-16'
+                      />
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='authHeaders'>
+                        {t('Authentication headers (JSON)')}{' '}
+                        <span className='text-muted-foreground'>
+                          {t('(optional)')}
+                        </span>
+                      </Label>
+                      <Textarea
+                        id='authHeaders'
+                        placeholder='{"Content-Type": "application/json"}'
+                        value={form.authHeaders}
+                        onChange={(e) => set('authHeaders')(e.target.value)}
+                        className='min-h-16'
+                      />
+                    </div>
+                    <div className='grid gap-4 sm:grid-cols-2'>
+                      <div className='space-y-2'>
+                        <Label htmlFor='tokenHeaderKey'>
+                          {t('Header key for token')}
+                        </Label>
+                        <Input
+                          id='tokenHeaderKey'
+                          placeholder='Authorization'
+                          value={form.tokenHeaderKey}
+                          onChange={(e) => set('tokenHeaderKey')(e.target.value)}
+                        />
+                      </div>
+                      <div className='space-y-2'>
+                        <Label htmlFor='tokenHeaderPrefix'>
+                          {t('Token prefix')}
+                        </Label>
+                        <Input
+                          id='tokenHeaderPrefix'
+                          placeholder='Bearer '
+                          value={form.tokenHeaderPrefix}
+                          onChange={(e) => set('tokenHeaderPrefix')(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
 
@@ -371,6 +606,33 @@ export function Connectors() {
                         set('serviceAccountKey')(e.target.value)
                       }
                     />
+                  </div>
+
+                  {/* Múltiples hojas y relaciones */}
+                  <div className='border-t pt-4 mt-4'>
+                    <Label className='text-sm font-semibold mb-3 block'>
+                      Múltiples hojas y relaciones (opcional)
+                    </Label>
+                    <div className='space-y-2'>
+                      <Label htmlFor='gsSheets'>Nombres de hojas</Label>
+                      <Input
+                        id='gsSheets'
+                        placeholder='Usuarios, Pedidos'
+                        value={form.excelSheets}
+                        onChange={(e) => set('excelSheets')(e.target.value)}
+                      />
+                      <p className='text-xs text-muted-foreground'>Separar por comas para múltiples hojas</p>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='gsRelationships'>Relationships JSON (opcional)</Label>
+                      <Textarea
+                        id='gsRelationships'
+                        placeholder='[{"from": "Usuarios:ID", "to": "Pedidos:UsuarioID", "name": "pedidos"}]'
+                        value={form.excelRelationships}
+                        onChange={(e) => set('excelRelationships')(e.target.value)}
+                        className='min-h-24 font-mono text-sm'
+                      />
+                    </div>
                   </div>
                 </>
               )}
@@ -425,16 +687,28 @@ export function Connectors() {
                   <div className='space-y-2'>
                     <div className='flex items-center justify-between'>
                       <Label htmlFor='query'>{t('Query (SELECT only)')}</Label>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => setSqlDialogOpen(true)}
-                        className='gap-1 h-8 text-xs'
-                      >
-                        <Sparkles className='size-3.5' />
-                        {t('Generate with AI')}
-                      </Button>
+                      <div className='flex gap-2'>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => setPreviewDialogOpen(true)}
+                          disabled={!form.query.trim()}
+                          className='gap-1 h-8 text-xs'
+                        >
+                          {t('Preview')}
+                        </Button>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => setSqlDialogOpen(true)}
+                          className='gap-1 h-8 text-xs'
+                        >
+                          <Sparkles className='size-3.5' />
+                          {t('Generate with AI')}
+                        </Button>
+                      </div>
                     </div>
                     <Textarea
                       id='query'
@@ -465,6 +739,103 @@ export function Connectors() {
                       </p>
                     </div>
                   )}
+                </>
+              )}
+
+              {form.type === 'excel' && (
+                <>
+                  <div className='space-y-2'>
+                    <Label htmlFor='excelFile'>Excel File</Label>
+                    <Input
+                      id='excelFile'
+                      type='file'
+                      accept='.xlsx,.xls'
+                      onChange={handleExcelUpload}
+                    />
+                  </div>
+                  {form.excelFileName && (
+                    <div className='p-3 bg-muted rounded text-sm'>
+                      <p className='text-muted-foreground'>
+                        {t('File loaded: {{fileName}}', { fileName: form.excelFileName })}
+                      </p>
+                    </div>
+                  )}
+                  <div className='space-y-2'>
+                    <Label htmlFor='excelSheets'>Sheet Names (opcional)</Label>
+                    <Input
+                      id='excelSheets'
+                      placeholder='Usuarios, Pedidos'
+                      value={form.excelSheets}
+                      onChange={(e) => set('excelSheets')(e.target.value)}
+                    />
+                    <p className='text-xs text-muted-foreground'>Separar por comas para múltiples hojas</p>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='excelRelationships'>Relationships JSON (opcional)</Label>
+                    <Textarea
+                      id='excelRelationships'
+                      placeholder='[{"from": "Usuarios:ID", "to": "Pedidos:UsuarioID", "name": "pedidos"}]'
+                      value={form.excelRelationships}
+                      onChange={(e) => set('excelRelationships')(e.target.value)}
+                      className='min-h-24 font-mono text-sm'
+                    />
+                  </div>
+                </>
+              )}
+
+              {form.type === 'excel_cloud' && (
+                <>
+                  <div className='grid gap-4 sm:grid-cols-2'>
+                    <div className='space-y-2'>
+                      <Label htmlFor='excelProvider'>Provider</Label>
+                      <Select value={form.excelProvider} onValueChange={set('excelProvider')}>
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='google_drive'>Google Drive</SelectItem>
+                          <SelectItem value='onedrive'>OneDrive</SelectItem>
+                          <SelectItem value='dropbox'>Dropbox</SelectItem>
+                          <SelectItem value='direct_url'>Direct URL</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label htmlFor='excelFileId'>File ID o URL</Label>
+                      <Input
+                        id='excelFileId'
+                        placeholder='1A2B3C4D5E... o https://...'
+                        value={form.excelFileId || form.excelUrl}
+                        onChange={(e) => {
+                          if (form.excelProvider === 'direct_url') {
+                            set('excelUrl')(e.target.value)
+                          } else {
+                            set('excelFileId')(e.target.value)
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='excelSheetsCloud'>Sheet Names (opcional)</Label>
+                    <Input
+                      id='excelSheetsCloud'
+                      placeholder='Usuarios, Pedidos'
+                      value={form.excelSheets}
+                      onChange={(e) => set('excelSheets')(e.target.value)}
+                    />
+                    <p className='text-xs text-muted-foreground'>Separar por comas para múltiples hojas</p>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='excelRelationshipsCloud'>Relationships JSON (opcional)</Label>
+                    <Textarea
+                      id='excelRelationshipsCloud'
+                      placeholder='[{"from": "Usuarios:ID", "to": "Pedidos:UsuarioID", "name": "pedidos"}]'
+                      value={form.excelRelationships}
+                      onChange={(e) => set('excelRelationships')(e.target.value)}
+                      className='min-h-24 font-mono text-sm'
+                    />
+                  </div>
                 </>
               )}
 
@@ -510,6 +881,14 @@ export function Connectors() {
                       variant='outline'
                       size='sm'
                       disabled={busyId === c.id}
+                      onClick={() => handleEdit(c)}
+                    >
+                      {t('Edit')}
+                    </Button>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      disabled={busyId === c.id}
                       onClick={() => handleTest(c)}
                     >
                       {t('Test')}
@@ -538,8 +917,28 @@ export function Connectors() {
             ? form.type
             : 'mysql'
         }
-        sampleColumns={[]}
+        host={form.host}
+        port={form.port}
+        user={form.user}
+        password={form.password}
+        database={form.database}
         onQuery={(query) => set('query')(query)}
+      />
+
+      <EditConnectorDialog
+        connector={editingConnector}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={load}
+      />
+
+      <PreviewQueryDialog
+        connectorId={editingConnector?.id ?? null}
+        query={form.query}
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        connectorType={(form.type === 'mysql' || form.type === 'postgresql' ? form.type : 'mysql') as 'mysql' | 'postgresql'}
+        onQueryChange={(newQuery) => set('query')(newQuery)}
       />
     </>
   )

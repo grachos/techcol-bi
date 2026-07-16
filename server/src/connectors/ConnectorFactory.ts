@@ -4,6 +4,8 @@ import { GoogleSheetsConnector } from "./GoogleSheets";
 import { MySQLConnector } from "./MySQL";
 import { PostgreSQLConnector } from "./PostgreSQL";
 import { CSV } from "./CSV";
+import { ExcelConnector } from "./Excel";
+import { ExcelCloudConnector } from "./ExcelCloud";
 
 export class ConnectorFactory {
   static create(type: ConnectorType, config: any): BaseConnector {
@@ -18,6 +20,10 @@ export class ConnectorFactory {
         return new PostgreSQLConnector(config);
       case "csv":
         return new CSV(config);
+      case "excel":
+        return new ExcelConnector(config);
+      case "excel_cloud":
+        return new ExcelCloudConnector(config);
       default:
         throw new Error(`Tipo de conector no soportado: ${type}`);
     }

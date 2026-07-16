@@ -98,6 +98,17 @@ ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS color ENUM('primary', 'pink', 'blue', 'green', 'orange', 'purple', 'teal')
     NOT NULL DEFAULT 'primary' AFTER chart_type;
 
+-- Links compartibles de dashboards (vista publica de solo lectura)
+CREATE TABLE IF NOT EXISTS dashboard_shares (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  dashboard_id INT NOT NULL,
+  share_token VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (dashboard_id) REFERENCES dashboards(id) ON DELETE CASCADE,
+  INDEX idx_shares_token (share_token),
+  INDEX idx_shares_dashboard (dashboard_id)
+);
+
 -- Usuario semilla para desarrollo
 INSERT INTO users (email, name)
 SELECT 'demo@bi-techcol.local', 'Usuario Demo'
