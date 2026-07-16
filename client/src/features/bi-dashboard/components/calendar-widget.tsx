@@ -1,17 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Calendar } from '@/components/ui/calendar'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData } from '@/hooks/use-connector-data'
 import { type Widget } from '@/lib/dashboard-api'
 import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
-
-type Row = Record<string, unknown>
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 interface CalendarWidgetProps {
   widget: Widget
@@ -20,16 +11,8 @@ interface CalendarWidgetProps {
 
 /** Widget informativo: calendario del mes, resalta fechas que aparecen en un conector (opcional) */
 export function CalendarWidget({ widget, activeFilters }: CalendarWidgetProps) {
-  const [rows, setRows] = useState<Row[]>([])
+  const { rows } = useConnectorData(widget.connectorId && widget.xKey ? widget.connectorId : null)
   const [month, setMonth] = useState<Date>(new Date())
-
-  useEffect(() => {
-    if (!widget.connectorId || !widget.xKey) return
-    biApi
-      .data(widget.connectorId)
-      .then((result) => setRows(toRows(result.data)))
-      .catch(() => {})
-  }, [widget.connectorId, widget.xKey])
 
   const highlightedDates = useMemo(() => {
     if (!widget.xKey) return []

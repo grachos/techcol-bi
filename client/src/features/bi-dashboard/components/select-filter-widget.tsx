@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData } from '@/hooks/use-connector-data'
 import { type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilterValue } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
@@ -11,15 +11,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-
-type Row = Record<string, unknown>
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 interface SelectFilterWidgetProps {
   widget: Widget
@@ -31,23 +22,9 @@ export function SelectFilterWidget({
   onChange,
 }: SelectFilterWidgetProps) {
   const { t } = useTranslation()
-  const [rows, setRows] = useState<Row[]>([])
+  const { rows, error } = useConnectorData(widget.connectorId)
   const [selectedValues, setSelectedValues] = useState<Set<string>>(new Set())
-  const [error, setError] = useState<string | null>(null)
   const [popoverOpen, setPopoverOpen] = useState(false)
-
-  useEffect(() => {
-    if (!widget.connectorId) return
-    biApi
-      .data(widget.connectorId)
-      .then((result) => {
-        setRows(toRows(result.data))
-        setError(null)
-      })
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : String(err))
-      )
-  }, [widget.connectorId])
 
   const options = useMemo(() => {
     if (!widget.filterColumn) return []

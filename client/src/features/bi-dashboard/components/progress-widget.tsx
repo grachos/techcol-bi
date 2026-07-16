@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData, type Row } from '@/hooks/use-connector-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
 import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
 
-const REFRESH_MS = 15000
 const MAX_ROWS = 12
 
 // Colores rotativos para las barras (estilo "Performance Listing")
@@ -16,15 +15,6 @@ const BAR_COLORS = [
   WIDGET_COLOR_CSS.blue.solid,
   WIDGET_COLOR_CSS.teal.solid,
 ]
-
-type Row = Record<string, unknown>
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 function detectKeys(rows: Row[], xKey: string | null, yKey: string | null) {
   if (rows.length === 0) return { x: xKey ?? '', y: yKey ?? '' }
@@ -45,32 +35,7 @@ interface ProgressWidgetProps {
 
 export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
   const { t } = useTranslation()
-  const [rows, setRows] = useState<Row[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!widget.connectorId) return
-    let cancelled = false
-    const fetchData = () => {
-      biApi
-        .data(widget.connectorId!)
-        .then((result) => {
-          if (cancelled) return
-          setRows(toRows(result.data))
-          setError(null)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          setError(err instanceof Error ? err.message : String(err))
-        })
-    }
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_MS)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [widget.connectorId])
+  const { rows, error } = useConnectorData(widget.connectorId)
 
   const filteredRows = useMemo(
     () => applyFilters(rows, activeFilters),

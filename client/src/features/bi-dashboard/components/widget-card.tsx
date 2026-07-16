@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -18,8 +18,9 @@ import {
 } from 'recharts'
 import { MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData, type Row } from '@/hooks/use-connector-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
+import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { applyFilters, type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +47,6 @@ import { ProgressWidget } from './progress-widget'
 import { SelectFilterWidget } from './select-filter-widget'
 import { StatWidget } from './stat-widget'
 
-const REFRESH_MS = 15000
 const MAX_TABLE_ROWS = 100
 const PIE_COLORS = [
   'var(--chart-1)',
@@ -55,15 +55,6 @@ const PIE_COLORS = [
   'var(--chart-4)',
   'var(--chart-5)',
 ]
-
-type Row = Record<string, unknown>
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 function detectKeys(rows: Row[], xKey: string | null, yKey: string | null) {
   if (rows.length === 0) return { x: xKey ?? '', y: yKey ?? '' }
@@ -191,32 +182,7 @@ function ChartWidgetBody({
   activeFilters: ActiveFilters
 }) {
   const { t } = useTranslation()
-  const [rows, setRows] = useState<Row[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!widget.connectorId) return
-    let cancelled = false
-    const fetchData = () => {
-      biApi
-        .data(widget.connectorId!)
-        .then((result) => {
-          if (cancelled) return
-          setRows(toRows(result.data))
-          setError(null)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          setError(err instanceof Error ? err.message : String(err))
-        })
-    }
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_MS)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [widget.connectorId])
+  const { rows, error } = useConnectorData(widget.connectorId)
 
   const filteredRows = useMemo(
     () => applyFilters(rows, activeFilters),
@@ -314,13 +280,30 @@ function renderChart(
     borderRadius: 8,
     fontSize: 12,
   }
+  const chartMargin = { top: 6, right: 8, left: -16, bottom: 0 }
+  const xAxisProps = {
+    dataKey: xKey,
+    fontSize: 11,
+    tickLine: false,
+    axisLine: false,
+    tickFormatter: (v: unknown) => truncateLabel(v, 8),
+    interval: 'preserveStartEnd' as const,
+    minTickGap: 12,
+  }
+  const yAxisProps = {
+    fontSize: 11,
+    tickLine: false,
+    axisLine: false,
+    width: 36,
+    tickFormatter: (v: number) => formatCompactNumber(v),
+  }
 
   if (chartType === 'line') {
     return (
-      <LineChart data={data}>
+      <LineChart data={data} margin={chartMargin}>
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
-        <XAxis dataKey={xKey} fontSize={11} tickLine={false} axisLine={false} />
-        <YAxis fontSize={11} tickLine={false} axisLine={false} />
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
         <Tooltip contentStyle={tooltipStyle} />
         <Line
           type='monotone'
@@ -335,10 +318,10 @@ function renderChart(
 
   if (chartType === 'area') {
     return (
-      <AreaChart data={data}>
+      <AreaChart data={data} margin={chartMargin}>
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
-        <XAxis dataKey={xKey} fontSize={11} tickLine={false} axisLine={false} />
-        <YAxis fontSize={11} tickLine={false} axisLine={false} />
+        <XAxis {...xAxisProps} />
+        <YAxis {...yAxisProps} />
         <Tooltip contentStyle={tooltipStyle} />
         <Area
           type='monotone'
@@ -354,15 +337,22 @@ function renderChart(
   if (chartType === 'pie') {
     // La torta usa la paleta multicolor, empezando por el color del widget
     const pieColors = [mainColor, ...PIE_COLORS]
+    // Con muchas porciones, las etiquetas se solapan: mostrar solo con pocas
+    const showLabels = data.length <= 6
     return (
-      <PieChart>
+      <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
         <Tooltip contentStyle={tooltipStyle} />
         <Pie
           data={data}
           dataKey={yKey}
           nameKey={xKey}
-          outerRadius='80%'
-          label={(entry) => String(entry.name)}
+          outerRadius='75%'
+          label={
+            showLabels
+              ? (entry) => truncateLabel(entry.name, 10)
+              : false
+          }
+          labelLine={showLabels}
         >
           {data.map((_, i) => (
             <Cell key={i} fill={pieColors[i % pieColors.length]} />
@@ -373,10 +363,10 @@ function renderChart(
   }
 
   return (
-    <BarChart data={data}>
+    <BarChart data={data} margin={chartMargin}>
       <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
-      <XAxis dataKey={xKey} fontSize={11} tickLine={false} axisLine={false} />
-      <YAxis fontSize={11} tickLine={false} axisLine={false} />
+      <XAxis {...xAxisProps} />
+      <YAxis {...yAxisProps} />
       <Tooltip cursor={{ fill: 'transparent' }} contentStyle={tooltipStyle} />
       <Bar dataKey={yKey} fill={mainColor} radius={[4, 4, 0, 0]} />
     </BarChart>

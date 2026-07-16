@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Responsive as ResponsiveGridLayout, type Layout, WidthProvider } from 'react-grid-layout'
+import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
-const ResponsiveGridLayoutWithWidth = WidthProvider(ResponsiveGridLayout)
+// Grid NO responsivo: 12 columnas fijas que se encogen proporcionalmente
+// con el ancho disponible, conservando siempre la disposicion original.
+const GridLayoutWithWidth = WidthProvider(GridLayout)
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Card, CardContent } from '@/components/ui/card'
 import { WidgetCard } from './widget-card'
@@ -56,11 +58,10 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
   return (
     <div className='p-4'>
       {widgets.length > 0 && (
-        <ResponsiveGridLayoutWithWidth
+        <GridLayoutWithWidth
           className='layout'
-          layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
-          cols={{ lg: GRID_COLS, md: 8, sm: 4, xs: 2, xxs: 1 }}
-          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          layout={layout}
+          cols={GRID_COLS}
           rowHeight={ROW_HEIGHT}
           isDraggable={false}
           isResizable={false}
@@ -82,7 +83,7 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
               />
             </div>
           ))}
-        </ResponsiveGridLayoutWithWidth>
+        </GridLayoutWithWidth>
       )}
     </div>
   )

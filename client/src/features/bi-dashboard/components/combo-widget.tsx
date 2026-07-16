@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -11,20 +11,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData, type Row } from '@/hooks/use-connector-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
+import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
-
-const REFRESH_MS = 15000
-
-type Row = Record<string, unknown>
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 /** Detecta el eje X (texto) y hasta dos series numericas para superponer */
 function detectSeries(rows: Row[], xKey: string | null, yKey: string | null) {
@@ -49,32 +39,7 @@ interface ComboWidgetProps {
 
 export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   const { t } = useTranslation()
-  const [rows, setRows] = useState<Row[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!widget.connectorId) return
-    let cancelled = false
-    const fetchData = () => {
-      biApi
-        .data(widget.connectorId!)
-        .then((result) => {
-          if (cancelled) return
-          setRows(toRows(result.data))
-          setError(null)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          setError(err instanceof Error ? err.message : String(err))
-        })
-    }
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_MS)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [widget.connectorId])
+  const { rows, error } = useConnectorData(widget.connectorId)
 
   const filteredRows = useMemo(
     () => applyFilters(rows, activeFilters),
@@ -119,10 +84,24 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
 
   return (
     <ResponsiveContainer width='100%' height='100%'>
-      <ComposedChart data={data}>
+      <ComposedChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
-        <XAxis dataKey={xKey} fontSize={11} tickLine={false} axisLine={false} />
-        <YAxis fontSize={11} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey={xKey}
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(v) => truncateLabel(v, 8)}
+          interval='preserveStartEnd'
+          minTickGap={12}
+        />
+        <YAxis
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          width={36}
+          tickFormatter={(v: number) => formatCompactNumber(v)}
+        />
         <Tooltip
           cursor={{ fill: 'transparent' }}
           contentStyle={{

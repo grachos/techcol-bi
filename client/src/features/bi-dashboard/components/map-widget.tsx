@@ -1,19 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { geoNaturalEarth1, geoPath } from 'd3-geo'
 import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry } from 'geojson'
 import type { Topology } from 'topojson-specification'
 import worldTopo from 'world-atlas/countries-110m.json'
-import { biApi } from '@/lib/bi-api'
+import { useConnectorData, type Row } from '@/hooks/use-connector-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
 import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
 
-const REFRESH_MS = 15000
 const VB_W = 800
 const VB_H = 420
-
-type Row = Record<string, unknown>
 
 // Precalculado una sola vez: features del mundo + path SVG por pais
 const world = feature(
@@ -28,13 +25,6 @@ const COUNTRY_PATHS = world.features.map((f) => ({
   name: f.properties.name,
   d: pathGen(f) ?? '',
 }))
-
-function toRows(data: unknown): Row[] {
-  if (!Array.isArray(data)) return []
-  return data.filter(
-    (item): item is Row => typeof item === 'object' && item !== null
-  )
-}
 
 function detectKeys(rows: Row[], xKey: string | null, yKey: string | null) {
   if (rows.length === 0) return { region: xKey ?? '', value: yKey ?? '' }
@@ -55,32 +45,7 @@ interface MapWidgetProps {
 
 export function MapWidget({ widget, activeFilters }: MapWidgetProps) {
   const { t } = useTranslation()
-  const [rows, setRows] = useState<Row[]>([])
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!widget.connectorId) return
-    let cancelled = false
-    const fetchData = () => {
-      biApi
-        .data(widget.connectorId!)
-        .then((result) => {
-          if (cancelled) return
-          setRows(toRows(result.data))
-          setError(null)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          setError(err instanceof Error ? err.message : String(err))
-        })
-    }
-    fetchData()
-    const interval = setInterval(fetchData, REFRESH_MS)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [widget.connectorId])
+  const { rows, error } = useConnectorData(widget.connectorId)
 
   const filteredRows = useMemo(
     () => applyFilters(rows, activeFilters),

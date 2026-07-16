@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Responsive as ResponsiveGridLayout, type Layout, WidthProvider } from 'react-grid-layout'
+import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
-const ResponsiveGridLayoutWithWidth = WidthProvider(ResponsiveGridLayout)
+// Grid NO responsivo: siempre 12 columnas. Al cambiar el ancho del contenedor
+// (abrir/cerrar sidebar, achicar ventana) las columnas se encogen
+// proporcionalmente pero los widgets conservan su posicion y proporcion,
+// igual que el dashboard estatico de inicio.
+const GridLayoutWithWidth = WidthProvider(GridLayout)
 import { toast } from 'sonner'
 import { biApi, type Connector } from '@/lib/bi-api'
 import {
@@ -233,11 +237,10 @@ export function BiDashboard() {
         )}
 
         {widgets.length > 0 && (
-          <ResponsiveGridLayoutWithWidth
+          <GridLayoutWithWidth
             className='layout'
-            layouts={{ lg: layout, md: layout, sm: layout, xs: layout, xxs: layout }}
-            cols={{ lg: GRID_COLS, md: 8, sm: 4, xs: 2, xxs: 1 }}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+            layout={layout}
+            cols={GRID_COLS}
             rowHeight={ROW_HEIGHT}
             isDraggable={isEditing}
             isResizable={isEditing}
@@ -266,7 +269,7 @@ export function BiDashboard() {
                 />
               </div>
             ))}
-          </ResponsiveGridLayoutWithWidth>
+          </GridLayoutWithWidth>
         )}
       </Main>
 
