@@ -81,10 +81,15 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
 
   const barColor = WIDGET_COLOR_CSS[widget.color].solid
   const lineColor = WIDGET_COLOR_CSS.pink.solid
+  // Widget bajito: sin ejes para dejar todo el espacio a la grafica
+  const compact = widget.layout.h <= 3
 
   return (
     <ResponsiveContainer width='100%' height='100%'>
-      <ComposedChart data={data} margin={{ top: 6, right: 8, left: -16, bottom: 0 }}>
+      <ComposedChart
+        data={data}
+        margin={compact ? { top: 4, right: 4, left: 4, bottom: 4 } : { top: 6, right: 8, left: -16, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
         <XAxis
           dataKey={xKey}
@@ -94,6 +99,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
           tickFormatter={(v) => truncateLabel(v, 8)}
           interval='preserveStartEnd'
           minTickGap={12}
+          hide={compact}
         />
         <YAxis
           fontSize={11}
@@ -101,6 +107,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
           axisLine={false}
           width={36}
           tickFormatter={(v: number) => formatCompactNumber(v)}
+          hide={compact}
         />
         <Tooltip
           cursor={{ fill: 'transparent' }}

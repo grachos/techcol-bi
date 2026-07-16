@@ -224,9 +224,13 @@ function ChartWidgetBody({
     )
   }
 
+  // Widget bajito (h <= 3 filas): sin ejes ni grilla para dejar todo el
+  // espacio a la grafica; se recalcula al terminar de redimensionar.
+  const compact = widget.layout.h <= 3
+
   return (
     <ResponsiveContainer width='100%' height='100%'>
-      {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t)}
+      {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t, compact)}
     </ResponsiveContainer>
   )
 }
@@ -238,7 +242,8 @@ function renderChart(
   yKey: string,
   columns: string[],
   color: Widget['color'],
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  compact = false
 ) {
   const mainColor = WIDGET_COLOR_CSS[color].solid
   if (chartType === 'table') {
@@ -280,7 +285,9 @@ function renderChart(
     borderRadius: 8,
     fontSize: 12,
   }
-  const chartMargin = { top: 6, right: 8, left: -16, bottom: 0 }
+  const chartMargin = compact
+    ? { top: 4, right: 4, left: 4, bottom: 4 }
+    : { top: 6, right: 8, left: -16, bottom: 0 }
   const xAxisProps = {
     dataKey: xKey,
     fontSize: 11,
@@ -289,6 +296,7 @@ function renderChart(
     tickFormatter: (v: unknown) => truncateLabel(v, 8),
     interval: 'preserveStartEnd' as const,
     minTickGap: 12,
+    hide: compact,
   }
   const yAxisProps = {
     fontSize: 11,
@@ -296,6 +304,7 @@ function renderChart(
     axisLine: false,
     width: 36,
     tickFormatter: (v: number) => formatCompactNumber(v),
+    hide: compact,
   }
 
   if (chartType === 'line') {
@@ -337,8 +346,8 @@ function renderChart(
   if (chartType === 'pie') {
     // La torta usa la paleta multicolor, empezando por el color del widget
     const pieColors = [mainColor, ...PIE_COLORS]
-    // Con muchas porciones, las etiquetas se solapan: mostrar solo con pocas
-    const showLabels = data.length <= 6
+    // Con muchas porciones o widget bajito, las etiquetas se solapan
+    const showLabels = !compact && data.length <= 6
     return (
       <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
         <Tooltip contentStyle={tooltipStyle} />

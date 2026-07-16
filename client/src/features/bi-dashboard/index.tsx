@@ -169,7 +169,7 @@ export function BiDashboard() {
     w: w.layout.w,
     h: w.layout.h,
     minW: 1,
-    minH: 3,
+    minH: 2,
   }))
   const layout = isMobile ? stackLayoutForMobile(desktopLayout) : desktopLayout
   const gridCols = isMobile ? 1 : GRID_COLS

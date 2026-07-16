@@ -66,6 +66,8 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
 
   const mutedClass = onColor ? 'text-white/80' : 'text-muted-foreground'
   const sparkColor = onColor ? 'rgba(255,255,255,0.85)' : 'var(--primary)'
+  // Widget bajito: numero mas pequeño y sin sparkline para que quepa todo
+  const compact = widget.layout.h <= 3
 
   if (error) {
     return (
@@ -82,7 +84,7 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
   return (
     <div className='flex h-full flex-col justify-between gap-1'>
       <div>
-        <div className='text-3xl font-bold tabular-nums'>
+        <div className={`${compact ? 'text-xl' : 'text-3xl'} font-bold tabular-nums`}>
           {new Intl.NumberFormat(undefined, {
             maximumFractionDigits: 2,
           }).format(value)}
@@ -96,7 +98,7 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
             })}`}
         </div>
       </div>
-      {sparkData.length > 1 && (
+      {!compact && sparkData.length > 1 && (
         <div className='h-10 w-full'>
           <ResponsiveContainer width='100%' height='100%'>
             <AreaChart data={sparkData}>
