@@ -1,3 +1,4 @@
+import { apiFetch } from './api-fetch'
 /**
  * Cliente del Copiloto de IA (Groq, modelos open-source) en el backend.
  */
@@ -44,7 +45,7 @@ async function handle<T>(res: Response): Promise<T> {
 
 export const aiApi = {
   suggestWidget: (prompt: string): Promise<WidgetSuggestion> =>
-    fetch('/api/ai/suggest-widget', {
+    apiFetch('/api/ai/suggest-widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt }),
@@ -55,7 +56,7 @@ export const aiApi = {
     widgetId: number,
     prompt: string
   ): Promise<WidgetEditSuggestion> =>
-    fetch('/api/ai/edit-widget', {
+    apiFetch('/api/ai/edit-widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dashboardId, widgetId, prompt }),
@@ -66,7 +67,7 @@ export const aiApi = {
     sampleColumns: string[],
     connectorType: 'mysql' | 'postgresql'
   ): Promise<SqlGeneration> =>
-    fetch('/api/ai/generate-sql', {
+    apiFetch('/api/ai/generate-sql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, sampleColumns, connectorType }),
@@ -77,7 +78,7 @@ export const aiApi = {
     schemaDescription: string,
     connectorType: 'mysql' | 'postgresql'
   ): Promise<SqlGeneration> =>
-    fetch('/api/ai/generate-sql', {
+    apiFetch('/api/ai/generate-sql', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -93,7 +94,7 @@ export const aiApi = {
     connectorType: 'mysql' | 'postgresql',
     schema?: string
   ): Promise<{ query: string; explanation: string }> =>
-    fetch('/api/ai/fix-query', {
+    apiFetch('/api/ai/fix-query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

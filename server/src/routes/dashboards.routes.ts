@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { pool } from "../db";
+import { requireAuth } from "../middleware/auth";
+import { decryptConfig, EncryptedPayload } from "../utils/encryption";
+import { ConnectorFactory } from "../connectors/ConnectorFactory";
+import { ConnectorType } from "../connectors/BaseConnector";
 
 const router = Router();
-
-// TODO: reemplazar por el usuario autenticado cuando exista auth real
-const DEMO_USER_ID = 1;
 
 const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
@@ -94,21 +95,132 @@ function serializeTags(tags: unknown): string | null {
 }
 
 async function assertDashboardOwnership(
-  dashboardId: string | number
+  dashboardId: string | number,
+  userId: number
 ): Promise<boolean> {
   const [rows]: any = await pool.query(
     "SELECT id FROM dashboards WHERE id = ? AND user_id = ?",
-    [dashboardId, DEMO_USER_ID]
+    [dashboardId, userId]
   );
   return rows.length > 0;
 }
 
+// ---------------------------------------------------------------------
+// Rutas publicas (dashboard compartido): deben quedar ANTES de requireAuth
+// ---------------------------------------------------------------------
+
+// Obtener dashboard compartido (acceso público sin autenticación)
+router.get("/share/:token", async (req: Request, res: Response) => {
+  try {
+    const [shareRows]: any = await pool.query(
+      "SELECT dashboard_id FROM dashboard_shares WHERE share_token = ?",
+      [req.params.token]
+    );
+
+    if (shareRows.length === 0) {
+      return res.status(404).json({ error: "Link compartible no válido" });
+    }
+
+    const dashboardId = shareRows[0].dashboard_id;
+
+    const [dashRows]: any = await pool.query(
+      "SELECT id, name, created_at FROM dashboards WHERE id = ?",
+      [dashboardId]
+    );
+
+    if (dashRows.length === 0) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
+
+    const dashboard = {
+      id: dashRows[0].id,
+      name: dashRows[0].name,
+      created_at: dashRows[0].created_at,
+      isShared: true,
+    };
+
+    const [widgetRows]: any = await pool.query(
+      `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
+              w.x_key, w.y_key, w.aggregation, w.filter_column, w.layout,
+              c.name AS connector_name, c.type AS connector_type
+       FROM dashboard_widgets w
+       LEFT JOIN connectors c ON c.id = w.connector_id
+       WHERE w.dashboard_id = ?
+       ORDER BY w.id ASC`,
+      [dashboardId]
+    );
+
+    const widgets = (widgetRows as WidgetRow[]).map((w) => ({
+      id: w.id,
+      connectorId: w.connector_id,
+      connectorName: w.connector_name,
+      connectorType: w.connector_type,
+      kind: w.kind,
+      title: w.title,
+      chartType: w.chart_type,
+      color: w.color,
+      xKey: w.x_key,
+      yKey: w.y_key,
+      aggregation: w.aggregation,
+      filterColumn: w.filter_column,
+      layout: parseLayout(w.layout),
+    }));
+
+    res.json({ ...dashboard, widgets });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Datos en vivo de un conector para la vista compartida: valida el token y
+// que el conector pertenezca a un widget de ese dashboard, sin exponer el
+// resto de la API de conectores.
+router.get(
+  "/share/:token/connectors/:connectorId/data",
+  async (req: Request, res: Response) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT c.id, c.type, c.config
+         FROM dashboard_shares s
+         JOIN dashboard_widgets w
+           ON w.dashboard_id = s.dashboard_id AND w.connector_id = ?
+         JOIN connectors c ON c.id = w.connector_id
+         WHERE s.share_token = ?
+         LIMIT 1`,
+        [req.params.connectorId, req.params.token]
+      );
+      const connector = rows[0];
+      if (!connector) {
+        return res.status(404).json({ error: "Conector no encontrado" });
+      }
+
+      const raw: string | EncryptedPayload = connector.config;
+      const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const config = decryptConfig(payload);
+      const instance = ConnectorFactory.create(
+        connector.type as ConnectorType,
+        config
+      );
+      const data = await instance.fetchData();
+
+      res.json({ id: connector.id, type: connector.type, data });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------
+// A partir de aqui, todas las rutas requieren sesion
+// ---------------------------------------------------------------------
+router.use(requireAuth);
+
 // Listar dashboards del usuario
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT id, name, is_favorite, tags, created_at FROM dashboards WHERE user_id = ? ORDER BY created_at ASC",
-      [DEMO_USER_ID]
+      [req.userId]
     );
     res.json(
       rows.map((r: any) => ({
@@ -133,7 +245,7 @@ router.post("/", async (req: Request, res: Response) => {
   try {
     const [result]: any = await pool.query(
       "INSERT INTO dashboards (user_id, name, tags) VALUES (?, ?, ?)",
-      [DEMO_USER_ID, name, serializeTags(tags)]
+      [req.userId, name, serializeTags(tags)]
     );
     res.status(201).json({ id: result.insertId, name });
   } catch (error: any) {
@@ -146,7 +258,7 @@ router.get("/:id", async (req: Request, res: Response) => {
   try {
     const [dashRows]: any = await pool.query(
       "SELECT id, name, is_favorite, tags, created_at FROM dashboards WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     if (dashRows.length === 0) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
@@ -218,7 +330,7 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
 
   try {
-    values.push(req.params.id, DEMO_USER_ID);
+    values.push(req.params.id, req.userId);
     const [result]: any = await pool.query(
       `UPDATE dashboards SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`,
       values
@@ -237,7 +349,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const [result]: any = await pool.query(
       "DELETE FROM dashboards WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
@@ -295,7 +407,7 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -353,7 +465,7 @@ router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -419,7 +531,7 @@ router.put("/:id/layout", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -444,7 +556,7 @@ router.put("/:id/layout", async (req: Request, res: Response) => {
 // Eliminar widget
 router.delete("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
     const [result]: any = await pool.query(
@@ -463,7 +575,7 @@ router.delete("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
 // Generar o obtener link compartible del dashboard
 router.post("/:id/share", async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -494,78 +606,13 @@ router.post("/:id/share", async (req: Request, res: Response) => {
 // Revocar el link compartible del dashboard
 router.delete("/:id/share", async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id))) {
+    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
     await pool.query("DELETE FROM dashboard_shares WHERE dashboard_id = ?", [
       req.params.id,
     ]);
     res.json({ revoked: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Obtener dashboard compartido (acceso público sin autenticación)
-router.get("/share/:token", async (req: Request, res: Response) => {
-  try {
-    const [shareRows]: any = await pool.query(
-      "SELECT dashboard_id FROM dashboard_shares WHERE share_token = ?",
-      [req.params.token]
-    );
-
-    if (shareRows.length === 0) {
-      return res.status(404).json({ error: "Link compartible no válido" });
-    }
-
-    const dashboardId = shareRows[0].dashboard_id;
-
-    // Obtener dashboard
-    const [dashRows]: any = await pool.query(
-      "SELECT id, name, created_at FROM dashboards WHERE id = ?",
-      [dashboardId]
-    );
-
-    if (dashRows.length === 0) {
-      return res.status(404).json({ error: "Dashboard no encontrado" });
-    }
-
-    const dashboard = {
-      id: dashRows[0].id,
-      name: dashRows[0].name,
-      created_at: dashRows[0].created_at,
-      isShared: true,
-    };
-
-    // Obtener widgets
-    const [widgetRows]: any = await pool.query(
-      `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
-              w.x_key, w.y_key, w.aggregation, w.filter_column, w.layout,
-              c.name AS connector_name, c.type AS connector_type
-       FROM dashboard_widgets w
-       LEFT JOIN connectors c ON c.id = w.connector_id
-       WHERE w.dashboard_id = ?
-       ORDER BY w.id ASC`,
-      [dashboardId]
-    );
-
-    const widgets = (widgetRows as WidgetRow[]).map((w) => ({
-      id: w.id,
-      connectorId: w.connector_id,
-      connectorName: w.connector_name,
-      connectorType: w.connector_type,
-      kind: w.kind,
-      title: w.title,
-      chartType: w.chart_type,
-      color: w.color,
-      xKey: w.x_key,
-      yKey: w.y_key,
-      aggregation: w.aggregation,
-      filterColumn: w.filter_column,
-      layout: parseLayout(w.layout),
-    }));
-
-    res.json({ ...dashboard, widgets });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -10,7 +10,6 @@ import { askGroqJson } from "../services/groq";
 const router = Router();
 
 // TODO: reemplazar por el usuario autenticado cuando exista auth real
-const DEMO_USER_ID = 1;
 
 const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
@@ -49,11 +48,12 @@ interface ConnectorSummary {
 }
 
 async function describeConnector(
-  connectorId: number
+  connectorId: number,
+  userId: number
 ): Promise<ConnectorSummary | null> {
   const [rows]: any = await pool.query(
     "SELECT id, name, type, config FROM connectors WHERE id = ? AND user_id = ?",
-    [connectorId, DEMO_USER_ID]
+    [connectorId, userId]
   );
   const row: ConnectorRow | undefined = rows[0];
   if (!row) return null;
@@ -77,10 +77,10 @@ async function describeConnector(
   }
 }
 
-async function describeConnectors(): Promise<ConnectorSummary[]> {
+async function describeConnectors(userId: number): Promise<ConnectorSummary[]> {
   const [rows]: any = await pool.query(
     "SELECT id, name, type, config FROM connectors WHERE user_id = ?",
-    [DEMO_USER_ID]
+    [userId]
   );
 
   const summaries = await Promise.all(
@@ -157,7 +157,7 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
   }
 
   try {
-    const connectors = await describeConnectors();
+    const connectors = await describeConnectors(req.userId!);
     if (connectors.length === 0) {
       return res.status(400).json({
         error: "No tienes conectores configurados todavia. Crea uno primero.",
@@ -289,7 +289,7 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
       `SELECT w.* FROM dashboard_widgets w
        JOIN dashboards d ON d.id = w.dashboard_id
        WHERE w.id = ? AND w.dashboard_id = ? AND d.user_id = ?`,
-      [widgetId, dashboardId, DEMO_USER_ID]
+      [widgetId, dashboardId, req.userId]
     );
     const widget = rows[0];
     if (!widget) {
@@ -297,7 +297,7 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
     }
 
     const connector = widget.connector_id
-      ? await describeConnector(widget.connector_id)
+      ? await describeConnector(widget.connector_id, req.userId!)
       : null;
 
     const systemPrompt = buildEditSystemPrompt(widget, connector);

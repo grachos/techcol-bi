@@ -10,13 +10,15 @@ import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters
 import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Card, CardContent } from '@/components/ui/card'
+import { ShareTokenProvider } from '../share-context'
 import { WidgetCard } from './widget-card'
 
 interface DashboardViewProps {
   dashboard: any
+  shareToken: string
 }
 
-export function DashboardView({ dashboard }: DashboardViewProps) {
+export function DashboardView({ dashboard, shareToken }: DashboardViewProps) {
   const isMobile = useIsMobile()
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
 
@@ -58,8 +60,8 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
   }
 
   return (
-    <div className='p-4'>
-      {widgets.length > 0 && (
+    <ShareTokenProvider value={shareToken}>
+      <div className='p-4'>
         <GridLayoutWithWidth
           className='layout'
           layout={layout}
@@ -86,7 +88,7 @@ export function DashboardView({ dashboard }: DashboardViewProps) {
             </div>
           ))}
         </GridLayoutWithWidth>
-      )}
-    </div>
+      </div>
+    </ShareTokenProvider>
   )
 }

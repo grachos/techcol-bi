@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { biApi } from '@/lib/bi-api'
+import { useShareToken } from '@/features/bi-dashboard/share-context'
 
 const REFRESH_MS = 15000
 
@@ -19,9 +20,14 @@ function toRows(data: unknown): Row[] {
  * (react-query conserva `data` mientras refetchea en segundo plano).
  */
 export function useConnectorData(connectorId: number | null | undefined) {
+  const shareToken = useShareToken()
+
   const query = useQuery({
-    queryKey: ['connector-data', connectorId],
-    queryFn: () => biApi.data(connectorId as number),
+    queryKey: ['connector-data', connectorId, shareToken],
+    queryFn: () =>
+      shareToken
+        ? biApi.dashboard.dataShared(shareToken, connectorId as number)
+        : biApi.data(connectorId as number),
     enabled: connectorId != null,
     refetchInterval: REFRESH_MS,
     staleTime: REFRESH_MS,

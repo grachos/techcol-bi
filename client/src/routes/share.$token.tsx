@@ -57,7 +57,7 @@ const ShareRoute = () => {
 
       {/* Dashboard content */}
       <div className='flex-1 overflow-auto'>
-        <DashboardView dashboard={dashboard} />
+        <DashboardView dashboard={dashboard} shareToken={token} />
       </div>
     </div>
   )

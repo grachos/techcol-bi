@@ -1,4 +1,5 @@
 import useDialogState from '@/hooks/use-dialog-state'
+import { useAuthStore } from '@/stores/auth-store'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,6 +14,7 @@ import { SignOutDialog } from '@/components/sign-out-dialog'
 
 export function ProfileDropdown() {
   const [open, setOpen] = useDialogState()
+  const email = useAuthStore((s) => s.auth.user?.email) ?? ''
 
   return (
     <>
@@ -28,7 +30,7 @@ export function ProfileDropdown() {
           <DropdownMenuLabel className='font-normal'>
             <div className='flex flex-col gap-1.5'>
               <p className='text-xs leading-none text-muted-foreground'>
-                demo@bi-techcol.local
+                {email}
               </p>
             </div>
           </DropdownMenuLabel>

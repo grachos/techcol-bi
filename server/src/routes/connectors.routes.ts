@@ -8,7 +8,6 @@ import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 const router = Router();
 
 // TODO: reemplazar por el usuario autenticado cuando exista auth real
-const DEMO_USER_ID = 1;
 
 interface ConnectorRow {
   id: number;
@@ -24,11 +23,11 @@ function parseStoredConfig(raw: string | EncryptedPayload): EncryptedPayload {
 }
 
 // Listar conectores (sin credenciales)
-router.get("/", async (_req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
       "SELECT id, name, type, created_at FROM connectors WHERE user_id = ? ORDER BY created_at DESC",
-      [DEMO_USER_ID]
+      [req.userId]
     );
     res.json(rows);
   } catch (error: any) {
@@ -41,7 +40,7 @@ router.get("/:id", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT id, name, type, config FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -83,7 +82,7 @@ router.post("/", async (req: Request, res: Response) => {
     const encrypted = encryptConfig(config);
     const [result]: any = await pool.query(
       "INSERT INTO connectors (user_id, name, type, config) VALUES (?, ?, ?, ?)",
-      [DEMO_USER_ID, name, type, JSON.stringify(encrypted)]
+      [req.userId, name, type, JSON.stringify(encrypted)]
     );
     res.status(201).json({ id: result.insertId, name, type });
   } catch (error: any) {
@@ -96,7 +95,7 @@ router.post("/:id/test", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -117,7 +116,7 @@ router.get("/:id/data", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -145,7 +144,7 @@ router.post("/:id/preview", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -201,7 +200,7 @@ router.put("/:id", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -220,7 +219,7 @@ router.put("/:id", async (req: Request, res: Response) => {
     const encrypted = encryptConfig(mergedConfig);
     await pool.query(
       "UPDATE connectors SET name = ?, config = ? WHERE id = ? AND user_id = ?",
-      [name, JSON.stringify(encrypted), req.params.id, DEMO_USER_ID]
+      [name, JSON.stringify(encrypted), req.params.id, req.userId]
     );
     res.json({ id: connector.id, name, type: connector.type });
   } catch (error: any) {
@@ -233,7 +232,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const [result]: any = await pool.query(
       "DELETE FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, DEMO_USER_ID]
+      [req.params.id, req.userId]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Conector no encontrado" });

@@ -2,6 +2,7 @@
  * Cliente del backend BI-TechCol (Express en /server).
  * En dev, Vite hace proxy de /api -> http://localhost:4000.
  */
+import { apiFetch } from './api-fetch'
 
 export type ConnectorType =
   | 'rest_api'
@@ -46,17 +47,17 @@ async function handle<T>(res: Response): Promise<T> {
 
 export const biApi = {
   list: (): Promise<Connector[]> =>
-    fetch('/api/connectors').then((r) => handle<Connector[]>(r)),
+    apiFetch('/api/connectors').then((r) => handle<Connector[]>(r)),
 
   get: (id: number): Promise<Connector & { config: Record<string, unknown> }> =>
-    fetch(`/api/connectors/${id}`).then((r) => handle(r)),
+    apiFetch(`/api/connectors/${id}`).then((r) => handle(r)),
 
   create: (payload: {
     name: string
     type: ConnectorType
     config: Record<string, unknown>
   }): Promise<{ id: number; name: string; type: ConnectorType }> =>
-    fetch('/api/connectors', {
+    apiFetch('/api/connectors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -69,24 +70,24 @@ export const biApi = {
       config: Record<string, unknown>
     }
   ): Promise<{ id: number; name: string; type: ConnectorType }> =>
-    fetch(`/api/connectors/${id}`, {
+    apiFetch(`/api/connectors/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).then((r) => handle(r)),
 
   remove: (id: number): Promise<{ deleted: boolean }> =>
-    fetch(`/api/connectors/${id}`, { method: 'DELETE' }).then((r) =>
+    apiFetch(`/api/connectors/${id}`, { method: 'DELETE' }).then((r) =>
       handle(r)
     ),
 
   test: (id: number): Promise<{ ok: boolean }> =>
-    fetch(`/api/connectors/${id}/test`, { method: 'POST' }).then((r) =>
+    apiFetch(`/api/connectors/${id}/test`, { method: 'POST' }).then((r) =>
       handle(r)
     ),
 
   data: (id: number): Promise<ConnectorData> =>
-    fetch(`/api/connectors/${id}/data`).then((r) => handle(r)),
+    apiFetch(`/api/connectors/${id}/data`).then((r) => handle(r)),
 
   preview: (
     id: number,
@@ -98,7 +99,7 @@ export const biApi = {
     rows: Record<string, unknown>[]
     rowCount: number
   }> =>
-    fetch(`/api/connectors/${id}/preview`, {
+    apiFetch(`/api/connectors/${id}/preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
@@ -107,17 +108,23 @@ export const biApi = {
   // Dashboard sharing
   dashboard: {
     share: (id: number): Promise<{ shareToken: string }> =>
-      fetch(`/api/dashboards/${id}/share`, { method: 'POST' }).then((r) =>
+      apiFetch(`/api/dashboards/${id}/share`, { method: 'POST' }).then((r) =>
         handle(r)
       ),
 
     revoke: (id: number): Promise<{ revoked: boolean }> =>
-      fetch(`/api/dashboards/${id}/share`, { method: 'DELETE' }).then((r) =>
+      apiFetch(`/api/dashboards/${id}/share`, { method: 'DELETE' }).then((r) =>
         handle(r)
       ),
 
+    // Publicas: sin sesion, fetch plano (nunca deben mandar el token de auth)
     getShared: (token: string) =>
       fetch(`/api/dashboards/share/${token}`).then((r) => handle(r)),
+
+    dataShared: (token: string, connectorId: number): Promise<ConnectorData> =>
+      fetch(`/api/dashboards/share/${token}/connectors/${connectorId}/data`).then(
+        (r) => handle(r)
+      ),
   },
 }
 

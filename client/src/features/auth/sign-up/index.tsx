@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -18,11 +17,11 @@ export function SignUp() {
       <Card className='max-w-sm gap-4'>
         <CardHeader>
           <CardTitle className='text-lg tracking-tight'>
-            {t('Create an account')}
+            {t('Set up your password')}
           </CardTitle>
           <CardDescription>
-            {t('Enter your email and password to create an account.')} <br />
-            {t('Already have an account?')}{' '}
+            {t('First time here? Set the password for your existing account.')} <br />
+            {t('Already set it up?')}{' '}
             <Link
               to='/sign-in'
               className='underline underline-offset-4 hover:text-primary'
@@ -34,25 +33,6 @@ export function SignUp() {
         <CardContent>
           <SignUpForm />
         </CardContent>
-        <CardFooter>
-          <p className='px-8 text-center text-sm text-muted-foreground'>
-            {t('By creating an account, you agree to our')}{' '}
-            <a
-              href='/terms'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              {t('Terms of Service')}
-            </a>{' '}
-            {t('and')}{' '}
-            <a
-              href='/privacy'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              {t('Privacy Policy')}
-            </a>
-            .
-          </p>
-        </CardFooter>
       </Card>
     </AuthLayout>
   )

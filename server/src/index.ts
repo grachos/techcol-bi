@@ -8,6 +8,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
 import { pingDb } from "./db";
+import { requireAuth } from "./middleware/auth";
+import authRoutes from "./routes/auth.routes";
 import connectorsRoutes from "./routes/connectors.routes";
 import dashboardsRoutes from "./routes/dashboards.routes";
 import aiRoutes from "./routes/ai.routes";
@@ -41,14 +43,28 @@ app.get("/api/health", async (_req, res) => {
   res.json({ status: "ok", service: "bi-techcol", db: dbOk ? "up" : "down" });
 });
 
-// Conectores dinamicos
-app.use("/api/connectors", connectorsRoutes);
+// Autenticacion (limite mas estricto para frenar fuerza bruta)
+app.use(
+  "/api/auth",
+  rateLimit({
+    windowMs: 60_000,
+    max: 15,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Demasiados intentos, intenta mas tarde" },
+  }),
+  authRoutes
+);
 
-// Dashboards personalizables
+// Conectores dinamicos (config de credenciales: solo el dueno de la sesion)
+app.use("/api/connectors", requireAuth, connectorsRoutes);
+
+// Dashboards personalizables (la vista /share/:token es publica; el propio
+// router aplica requireAuth solo al resto de sus rutas)
 app.use("/api/dashboards", dashboardsRoutes);
 
 // Copiloto de IA (Groq)
-app.use("/api/ai", aiRoutes);
+app.use("/api/ai", requireAuth, aiRoutes);
 
 // Manejador global: registra el detalle en el servidor y responde generico
 // para no filtrar internals al cliente.

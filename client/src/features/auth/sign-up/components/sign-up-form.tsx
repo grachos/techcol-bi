@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from '@tanstack/react-router'
 import { Loader2, UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { IconFacebook, IconGithub } from '@/assets/brand-icons'
-import { sleep, cn } from '@/lib/utils'
+import { authApi } from '@/lib/auth-api'
+import { useAuthStore } from '@/stores/auth-store'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -29,7 +31,7 @@ function buildSchema(t: (k: string) => string) {
       password: z
         .string()
         .min(1, t('Please enter your password.'))
-        .min(7, t('Password must be at least 7 characters long.')),
+        .min(8, t('Password must be at least 8 characters long.')),
       confirmPassword: z.string().min(1, t('Please confirm your password.')),
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -44,6 +46,8 @@ export function SignUpForm({
 }: React.HTMLAttributes<HTMLFormElement>) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+  const { auth } = useAuthStore()
 
   const formSchema = buildSchema(t)
 
@@ -56,17 +60,22 @@ export function SignUpForm({
     },
   })
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
+  async function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true)
-
-    toast.promise(sleep(2000), {
-      loading: t('Creating account...'),
-      success: () => {
-        setIsLoading(false)
-        return t('Account created for {{email}}.', { email: data.email })
-      },
-      error: t('Error'),
-    })
+    try {
+      const { token, user } = await authApi.setupPassword(
+        data.email,
+        data.password
+      )
+      auth.setAccessToken(token)
+      auth.setUser(user)
+      toast.success(t('Password set. Welcome!'))
+      navigate({ to: '/', replace: true })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('Error'))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -117,38 +126,8 @@ export function SignUpForm({
         />
         <Button className='mt-2' disabled={isLoading}>
           {isLoading ? <Loader2 className='animate-spin' /> : <UserPlus />}
-          {t('Create Account')}
+          {t('Set password')}
         </Button>
-
-        <div className='relative my-2'>
-          <div className='absolute inset-0 flex items-center'>
-            <span className='w-full border-t' />
-          </div>
-          <div className='relative flex justify-center text-xs uppercase'>
-            <span className='bg-background px-2 text-muted-foreground'>
-              {t('Or continue with')}
-            </span>
-          </div>
-        </div>
-
-        <div className='grid grid-cols-2 gap-2'>
-          <Button
-            variant='outline'
-            className='w-full'
-            type='button'
-            disabled={isLoading}
-          >
-            <IconGithub className='h-4 w-4' /> GitHub
-          </Button>
-          <Button
-            variant='outline'
-            className='w-full'
-            type='button'
-            disabled={isLoading}
-          >
-            <IconFacebook className='h-4 w-4' /> Facebook
-          </Button>
-        </div>
       </form>
     </Form>
   )

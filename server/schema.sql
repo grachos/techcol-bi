@@ -12,8 +12,13 @@ CREATE TABLE IF NOT EXISTS users (
   id INT PRIMARY KEY AUTO_INCREMENT,
   email VARCHAR(255) NOT NULL UNIQUE,
   name VARCHAR(255),
+  password_hash VARCHAR(255) NULL, -- NULL = sin contraseña asignada (primer ingreso pendiente)
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migracion idempotente para bases ya creadas antes de agregar auth real
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NULL AFTER name;
 
 -- Conectores configurados por cada usuario
 CREATE TABLE IF NOT EXISTS connectors (

@@ -1,6 +1,7 @@
 /**
  * Cliente del backend de Dashboards (Express en /server).
  */
+import { apiFetch } from './api-fetch'
 import type { ConnectorType } from './bi-api'
 
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'table'
@@ -139,13 +140,13 @@ export interface WidgetPayload {
 
 export const dashboardApi = {
   list: (): Promise<DashboardSummary[]> =>
-    fetch('/api/dashboards').then((r) => handle(r)),
+    apiFetch('/api/dashboards').then((r) => handle(r)),
 
   get: (id: number): Promise<DashboardDetail> =>
-    fetch(`/api/dashboards/${id}`).then((r) => handle(r)),
+    apiFetch(`/api/dashboards/${id}`).then((r) => handle(r)),
 
   create: (name: string, tags?: string[]): Promise<{ id: number; name: string }> =>
-    fetch('/api/dashboards', {
+    apiFetch('/api/dashboards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, tags }),
@@ -155,14 +156,14 @@ export const dashboardApi = {
     id: number,
     payload: Partial<{ name: string; isFavorite: boolean; tags: string[] }>
   ): Promise<{ id: number }> =>
-    fetch(`/api/dashboards/${id}`, {
+    apiFetch(`/api/dashboards/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).then((r) => handle(r)),
 
   remove: (id: number): Promise<{ deleted: boolean }> =>
-    fetch(`/api/dashboards/${id}`, { method: 'DELETE' }).then((r) =>
+    apiFetch(`/api/dashboards/${id}`, { method: 'DELETE' }).then((r) =>
       handle(r)
     ),
 
@@ -170,7 +171,7 @@ export const dashboardApi = {
     dashboardId: number,
     payload: WidgetPayload
   ): Promise<{ id: number }> =>
-    fetch(`/api/dashboards/${dashboardId}/widgets`, {
+    apiFetch(`/api/dashboards/${dashboardId}/widgets`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -190,7 +191,7 @@ export const dashboardApi = {
       layout: WidgetLayout
     }>
   ): Promise<{ updated: boolean }> =>
-    fetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    apiFetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -200,7 +201,7 @@ export const dashboardApi = {
     dashboardId: number,
     items: (WidgetLayout & { id: number })[]
   ): Promise<{ updated: number }> =>
-    fetch(`/api/dashboards/${dashboardId}/layout`, {
+    apiFetch(`/api/dashboards/${dashboardId}/layout`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items }),
@@ -210,7 +211,7 @@ export const dashboardApi = {
     dashboardId: number,
     widgetId: number
   ): Promise<{ deleted: boolean }> =>
-    fetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    apiFetch(`/api/dashboards/${dashboardId}/widgets/${widgetId}`, {
       method: 'DELETE',
     }).then((r) => handle(r)),
 }
