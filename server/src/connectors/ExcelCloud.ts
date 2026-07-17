@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as XLSX from "xlsx";
 import { BaseConnector } from "./BaseConnector";
+import { assertPublicUrl } from "../utils/security";
 
 export interface ExcelCloudConfig {
   // URL del archivo Excel en la nube (ej: Google Drive, OneDrive, Dropbox)
@@ -51,6 +52,7 @@ export class ExcelCloudConnector extends BaseConnector {
 
   private async downloadFile(): Promise<Buffer> {
     const url = this.buildDownloadUrl();
+    await assertPublicUrl(url);
     const response = await axios.get(url, {
       responseType: "arraybuffer",
       timeout: 30_000,

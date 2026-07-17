@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { biApi, type Connector } from '@/lib/bi-api'
+import { biApi, SECRET_MASK, type Connector } from '@/lib/bi-api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -73,6 +73,17 @@ export function EditConnectorDialog({
     setConfig((prev) => ({ ...prev, [key]: value }))
   }
 
+  // Un secreto guardado llega enmascarado: se muestra vacio con una pista y,
+  // si el usuario no lo toca, se reenvia la marca para conservarlo.
+  const isMasked = (key: string) => config[key] === SECRET_MASK
+  const secretText = (key: string) => {
+    const v = config[key]
+    if (v === SECRET_MASK) return ''
+    return typeof v === 'string' ? v : JSON.stringify(v ?? {}, null, 2)
+  }
+  const secretHint = (fallback: string) =>
+    t('•••• saved — type to replace') || fallback
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -136,11 +147,7 @@ export function EditConnectorDialog({
               <div className="space-y-2">
                 <Label>Headers JSON (opcional)</Label>
                 <Textarea
-                  value={
-                    typeof config.headers === 'string'
-                      ? config.headers
-                      : JSON.stringify(config.headers ?? {}, null, 2)
-                  }
+                  value={secretText('headers')}
                   onChange={(e) => {
                     try {
                       handleConfigChange('headers', JSON.parse(e.target.value))
@@ -148,7 +155,11 @@ export function EditConnectorDialog({
                       handleConfigChange('headers', e.target.value)
                     }
                   }}
-                  placeholder='{"Authorization": "Bearer TOKEN"}'
+                  placeholder={
+                    isMasked('headers')
+                      ? secretHint('•••• guardado')
+                      : '{"Authorization": "Bearer TOKEN"}'
+                  }
                   className="min-h-24 font-mono text-sm"
                 />
               </div>
@@ -182,11 +193,7 @@ export function EditConnectorDialog({
                 <div className="space-y-2">
                   <Label className="text-xs">Body para autenticación (JSON, opcional)</Label>
                   <Textarea
-                    value={
-                      typeof config.authBody === 'string'
-                        ? config.authBody
-                        : JSON.stringify(config.authBody ?? {}, null, 2)
-                    }
+                    value={secretText('authBody')}
                     onChange={(e) => {
                       try {
                         handleConfigChange('authBody', JSON.parse(e.target.value))
@@ -194,18 +201,18 @@ export function EditConnectorDialog({
                         handleConfigChange('authBody', e.target.value)
                       }
                     }}
-                    placeholder='{"username": "user", "password": "pass"}'
+                    placeholder={
+                      isMasked('authBody')
+                        ? secretHint('•••• guardado')
+                        : '{"username": "user", "password": "pass"}'
+                    }
                     className="min-h-16 font-mono text-sm"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Headers de autenticación (JSON, opcional)</Label>
                   <Textarea
-                    value={
-                      typeof config.authHeaders === 'string'
-                        ? config.authHeaders
-                        : JSON.stringify(config.authHeaders ?? {}, null, 2)
-                    }
+                    value={secretText('authHeaders')}
                     onChange={(e) => {
                       try {
                         handleConfigChange('authHeaders', JSON.parse(e.target.value))
@@ -213,7 +220,11 @@ export function EditConnectorDialog({
                         handleConfigChange('authHeaders', e.target.value)
                       }
                     }}
-                    placeholder='{"Content-Type": "application/json"}'
+                    placeholder={
+                      isMasked('authHeaders')
+                        ? secretHint('•••• guardado')
+                        : '{"Content-Type": "application/json"}'
+                    }
                     className="min-h-16 font-mono text-sm"
                   />
                 </div>
@@ -276,9 +287,9 @@ export function EditConnectorDialog({
                 <Label>{t('Password')} (opcional)</Label>
                 <Input
                   type="password"
-                  value={(config.password as string) ?? ''}
+                  value={isMasked('password') ? '' : ((config.password as string) ?? '')}
                   onChange={(e) => handleConfigChange('password', e.target.value)}
-                  placeholder="••••••"
+                  placeholder={isMasked('password') ? secretHint('•••• guardado') : '••••••'}
                 />
               </div>
               <div className="space-y-2">
@@ -322,11 +333,7 @@ export function EditConnectorDialog({
               <div className="space-y-2">
                 <Label>Service Account Key (JSON)</Label>
                 <Textarea
-                  value={
-                    typeof config.serviceAccountKey === 'string'
-                      ? config.serviceAccountKey
-                      : JSON.stringify(config.serviceAccountKey ?? {}, null, 2)
-                  }
+                  value={secretText('serviceAccountKey')}
                   onChange={(e) => {
                     try {
                       handleConfigChange('serviceAccountKey', JSON.parse(e.target.value))
@@ -334,7 +341,11 @@ export function EditConnectorDialog({
                       handleConfigChange('serviceAccountKey', e.target.value)
                     }
                   }}
-                  placeholder="Paste your service account JSON"
+                  placeholder={
+                    isMasked('serviceAccountKey')
+                      ? secretHint('•••• guardado')
+                      : 'Paste your service account JSON'
+                  }
                   className="min-h-32 font-mono text-sm"
                 />
               </div>

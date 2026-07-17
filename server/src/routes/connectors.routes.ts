@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
+import { maskSecrets, unmaskSecrets } from "../utils/security";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 
@@ -52,7 +53,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       id: connector.id,
       name: connector.name,
       type: connector.type,
-      config,
+      // Los secretos salen enmascarados: nunca viajan en claro al navegador
+      config: maskSecrets(connector.type, config as Record<string, unknown>),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -206,10 +208,16 @@ router.put("/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Conector no encontrado" });
     }
 
-    // Validar que la nueva config es utilizable
-    ConnectorFactory.create(connector.type, config);
+    // Restaurar secretos enmascarados (sin cambios) desde la config previa
+    const existingConfig = decryptConfig(
+      parseStoredConfig(connector.config)
+    ) as Record<string, unknown>;
+    const mergedConfig = unmaskSecrets(connector.type, config, existingConfig);
 
-    const encrypted = encryptConfig(config);
+    // Validar que la nueva config es utilizable
+    ConnectorFactory.create(connector.type, mergedConfig);
+
+    const encrypted = encryptConfig(mergedConfig);
     await pool.query(
       "UPDATE connectors SET name = ?, config = ? WHERE id = ? AND user_id = ?",
       [name, JSON.stringify(encrypted), req.params.id, DEMO_USER_ID]

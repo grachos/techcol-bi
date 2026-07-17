@@ -1,5 +1,6 @@
 import axios, { Method } from "axios";
 import { BaseConnector } from "./BaseConnector";
+import { assertPublicUrl } from "../utils/security";
 
 export interface RestAPIConfig {
   url: string;
@@ -33,6 +34,7 @@ export class RestAPIConnector extends BaseConnector {
   private async getAuthToken(): Promise<string | null> {
     if (!this.cfg.authUrl) return null;
 
+    await assertPublicUrl(this.cfg.authUrl);
     try {
       const response = await axios({
         method: this.cfg.authMethod ?? "POST",
@@ -73,6 +75,7 @@ export class RestAPIConnector extends BaseConnector {
       headers[headerKey] = `${prefix}${token}`;
     }
 
+    await assertPublicUrl(this.cfg.url);
     const response = await axios({
       method: this.cfg.method ?? "GET",
       url: this.cfg.url,

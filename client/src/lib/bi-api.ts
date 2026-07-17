@@ -111,7 +111,15 @@ export const biApi = {
         handle(r)
       ),
 
+    revoke: (id: number): Promise<{ revoked: boolean }> =>
+      fetch(`/api/dashboards/${id}/share`, { method: 'DELETE' }).then((r) =>
+        handle(r)
+      ),
+
     getShared: (token: string) =>
       fetch(`/api/dashboards/share/${token}`).then((r) => handle(r)),
   },
 }
+
+/** Marca que el backend usa para secretos ya guardados (no viajan en claro). */
+export const SECRET_MASK = '__SECRET_STORED__'

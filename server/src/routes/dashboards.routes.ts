@@ -491,6 +491,21 @@ router.post("/:id/share", async (req: Request, res: Response) => {
   }
 });
 
+// Revocar el link compartible del dashboard
+router.delete("/:id/share", async (req: Request, res: Response) => {
+  try {
+    if (!(await assertDashboardOwnership(req.params.id))) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
+    await pool.query("DELETE FROM dashboard_shares WHERE dashboard_id = ?", [
+      req.params.id,
+    ]);
+    res.json({ revoked: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Obtener dashboard compartido (acceso público sin autenticación)
 router.get("/share/:token", async (req: Request, res: Response) => {
   try {
