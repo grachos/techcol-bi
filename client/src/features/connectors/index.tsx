@@ -50,6 +50,7 @@ type FormState = {
   authUrl: string
   authMethod: string
   authBody: string
+  authBodyType: string
   authHeaders: string
   authTokenPath: string
   tokenHeaderKey: string
@@ -90,6 +91,7 @@ const EMPTY_FORM: FormState = {
   authUrl: '',
   authMethod: 'POST',
   authBody: '',
+  authBodyType: 'json',
   authHeaders: '',
   authTokenPath: '',
   tokenHeaderKey: 'Authorization',
@@ -137,7 +139,7 @@ function buildConfig(form: FormState): Record<string, unknown> {
         // Autenticación encadenada
         ...(form.authUrl ? { authUrl: form.authUrl } : {}),
         ...(form.authUrl ? { authMethod: form.authMethod } : {}),
-        ...(authBody ? { authBody } : {}),
+        ...(authBody ? { authBody, authBodyType: form.authBodyType } : {}),
         ...(authHeaders ? { authHeaders } : {}),
         ...(form.authTokenPath ? { authTokenPath: form.authTokenPath } : {}),
         ...(form.tokenHeaderKey ? { tokenHeaderKey: form.tokenHeaderKey } : {}),
@@ -465,9 +467,9 @@ export function Connectors() {
                   </div>
 
                   {/* Autenticación encadenada */}
-                  <div className='border-t pt-4 mt-4'>
-                    <Label className='text-sm font-semibold mb-3 block'>
-                      {t('Chained authentication')} ({t('optional')})
+                  <div className='border-t pt-4 mt-4 space-y-4'>
+                    <Label className='text-sm font-semibold block'>
+                      {t('Chained authentication')} {t('(optional)')}
                     </Label>
                     <div className='space-y-2'>
                       <Label htmlFor='authUrl'>
@@ -510,18 +512,40 @@ export function Connectors() {
                     </div>
                     <div className='space-y-2'>
                       <Label htmlFor='authBody'>
-                        {t('Authentication body (JSON)')}{' '}
+                        {t('Authentication body')}{' '}
                         <span className='text-muted-foreground'>
                           {t('(optional)')}
                         </span>
                       </Label>
                       <Textarea
                         id='authBody'
-                        placeholder='{"username": "usuario", "password": "contraseña"}'
+                        placeholder='{"usuario_login": "usuario", "usuario_password": "contraseña"}'
                         value={form.authBody}
                         onChange={(e) => set('authBody')(e.target.value)}
-                        className='min-h-16'
+                        className='min-h-16 font-mono text-sm'
                       />
+                      <p className='text-xs text-muted-foreground'>
+                        {t('Write the fields as JSON; the format below decides how they are sent.')}
+                      </p>
+                    </div>
+                    <div className='space-y-2'>
+                      <Label>{t('Body format')}</Label>
+                      <Select
+                        value={form.authBodyType}
+                        onValueChange={set('authBodyType')}
+                      >
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value='json'>
+                            JSON (application/json)
+                          </SelectItem>
+                          <SelectItem value='form'>
+                            Form (x-www-form-urlencoded)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className='space-y-2'>
                       <Label htmlFor='authHeaders'>

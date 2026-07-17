@@ -115,6 +115,10 @@ export const es: Record<string, string> = {
   'Authentication method': 'Método de autenticación',
   'Token path in response': 'Ruta del token en la respuesta',
   'Authentication body (JSON)': 'Cuerpo de autenticación (JSON)',
+  'Authentication body': 'Cuerpo de autenticación',
+  'Body format': 'Formato del cuerpo',
+  'Write the fields as JSON; the format below decides how they are sent.':
+    'Escribe los campos como JSON; el formato de abajo decide cómo se envían.',
   'Authentication headers (JSON)': 'Headers de autenticación (JSON)',
   'Header key for token': 'Clave del header para el token',
   'Token prefix': 'Prefijo del token',

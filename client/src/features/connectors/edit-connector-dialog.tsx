@@ -187,8 +187,8 @@ export function EditConnectorDialog({
               </div>
 
               {/* Autenticación encadenada */}
-              <div className="border-t pt-4 mt-4">
-                <Label className="text-sm font-semibold mb-3 block">Autenticación encadenada (opcional)</Label>
+              <div className="border-t pt-4 mt-4 space-y-4">
+                <Label className="text-sm font-semibold block">Autenticación encadenada (opcional)</Label>
                 <div className="space-y-2">
                   <Label className="text-xs">URL de autenticación</Label>
                   <Input
@@ -213,7 +213,7 @@ export function EditConnectorDialog({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Body para autenticación (JSON, opcional)</Label>
+                  <Label className="text-xs">Body para autenticación (opcional)</Label>
                   <Textarea
                     value={secretText('authBody')}
                     onChange={(e) => {
@@ -226,10 +226,28 @@ export function EditConnectorDialog({
                     placeholder={
                       isMasked('authBody')
                         ? secretHint('•••• guardado')
-                        : '{"username": "user", "password": "pass"}'
+                        : '{"usuario_login": "user", "usuario_password": "pass"}'
                     }
                     className="min-h-16 font-mono text-sm"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {t('Write the fields as JSON; the format below decides how they are sent.')}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">{t('Body format')}</Label>
+                  <Select
+                    value={(config.authBodyType as string) ?? 'json'}
+                    onValueChange={(v) => handleConfigChange('authBodyType', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="json">JSON (application/json)</SelectItem>
+                      <SelectItem value="form">Form (x-www-form-urlencoded)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Headers de autenticación (JSON, opcional)</Label>
@@ -373,8 +391,8 @@ export function EditConnectorDialog({
               </div>
 
               {/* Múltiples hojas y relaciones */}
-              <div className="border-t pt-4 mt-4">
-                <Label className="text-sm font-semibold mb-3 block">
+              <div className="border-t pt-4 mt-4 space-y-4">
+                <Label className="text-sm font-semibold block">
                   Múltiples hojas y relaciones (opcional)
                 </Label>
                 <div className="space-y-2">

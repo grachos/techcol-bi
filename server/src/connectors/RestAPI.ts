@@ -27,6 +27,15 @@ export interface RestAPIConfig {
   authUrl?: string;
   authMethod?: Method;
   authBody?: Record<string, any>;
+  /**
+   * Formato en que se envia authBody:
+   *  - "json" (default): application/json
+   *  - "form": application/x-www-form-urlencoded (usuario=x&password=y), que
+   *    es lo que esperan muchas APIs PHP/legacy.
+   * En ambos casos authBody se escribe como objeto; esto solo decide como se
+   * serializa al viajar.
+   */
+  authBodyType?: "json" | "form";
   authHeaders?: Record<string, string>;
   /** Ruta al token en la respuesta de autenticación, ej: "access_token" o "data.token" */
   authTokenPath?: string;
@@ -83,13 +92,29 @@ export class RestAPIConnector extends BaseConnector {
     }
 
     await assertPublicUrl(authUrl);
+
+    // form -> usuario=x&password=y ; json -> {"usuario":"x",...}
+    const asForm = this.cfg.authBodyType === "form";
+    const body =
+      asForm && authBody
+        ? new URLSearchParams(
+            Object.entries(authBody).map(([k, v]) => [k, String(v)])
+          ).toString()
+        : authBody;
+
     let token: unknown;
     try {
       const response = await axios({
         method: this.cfg.authMethod ?? "POST",
         url: authUrl,
-        data: authBody,
-        headers: this.cfg.authHeaders ?? {},
+        data: body,
+        headers: {
+          ...(asForm
+            ? { "Content-Type": "application/x-www-form-urlencoded" }
+            : {}),
+          // Los headers explicitos del usuario mandan sobre el default
+          ...(this.cfg.authHeaders ?? {}),
+        },
         timeout: 15_000,
       });
       token = this.cfg.authTokenPath
