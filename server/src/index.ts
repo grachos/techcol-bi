@@ -5,6 +5,7 @@ import express, {
 } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
 import { pingDb } from "./db";
@@ -18,6 +19,7 @@ const app = express();
 
 // Cabeceras de seguridad (CSP, no-sniff, etc.)
 app.use(helmet());
+app.use(compression());
 app.use(
   cors({
     origin: config.clientOrigin,

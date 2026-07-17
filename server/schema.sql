@@ -33,15 +33,26 @@ CREATE TABLE IF NOT EXISTS connectors (
   INDEX idx_connectors_user (user_id)
 );
 
--- Cache de datos obtenidos por conector (opcional)
+-- Cache de datos obtenidos por conector: una sola fila por conector (TTL de
+-- 60s aplicado en la app), para no golpear la fuente en cada refresh de
+-- cada widget que la use.
 CREATE TABLE IF NOT EXISTS connector_data (
   id INT PRIMARY KEY AUTO_INCREMENT,
   connector_id INT NOT NULL,
   data JSON,
   fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (connector_id) REFERENCES connectors(id) ON DELETE CASCADE,
-  INDEX idx_connector_data_connector (connector_id)
+  UNIQUE INDEX uq_connector_data_connector (connector_id)
 );
+
+-- Migracion idempotente: bases creadas antes de que connector_data se usara
+-- como cache pueden tener duplicados por connector_id; quedarse con el mas
+-- reciente antes de aplicar el UNIQUE INDEX.
+DELETE cd1 FROM connector_data cd1
+INNER JOIN connector_data cd2
+  ON cd1.connector_id = cd2.connector_id AND cd1.id < cd2.id;
+ALTER TABLE connector_data
+  ADD UNIQUE INDEX IF NOT EXISTS uq_connector_data_connector (connector_id);
 
 -- Dashboards personalizables por usuario
 CREATE TABLE IF NOT EXISTS dashboards (
@@ -61,6 +72,10 @@ ALTER TABLE dashboards
   ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT FALSE AFTER name;
 ALTER TABLE dashboards
   ADD COLUMN IF NOT EXISTS tags VARCHAR(255) NULL AFTER is_favorite;
+
+-- Cubre el filtro Favoritos/Explorar (WHERE user_id = ? [AND is_favorite = ?])
+ALTER TABLE dashboards
+  ADD INDEX IF NOT EXISTS idx_dashboards_user_fav (user_id, is_favorite);
 
 -- Widgets dentro de un dashboard: graficas/tablas, informativos (KPI, calendario, reloj)
 -- y filtros interactivos (fecha, seleccion) que afectan a otros widgets del mismo dashboard.

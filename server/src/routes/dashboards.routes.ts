@@ -3,6 +3,8 @@ import { randomBytes } from "crypto";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { decryptConfig, EncryptedPayload } from "../utils/encryption";
+import { truncateRows } from "../utils/security";
+import { getCachedConnectorData } from "../services/connector-cache";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { ConnectorType } from "../connectors/BaseConnector";
 
@@ -194,16 +196,18 @@ router.get(
         return res.status(404).json({ error: "Conector no encontrado" });
       }
 
-      const raw: string | EncryptedPayload = connector.config;
-      const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const config = decryptConfig(payload);
-      const instance = ConnectorFactory.create(
-        connector.type as ConnectorType,
-        config
-      );
-      const data = await instance.fetchData();
+      const data = await getCachedConnectorData(connector.id, async () => {
+        const raw: string | EncryptedPayload = connector.config;
+        const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const config = decryptConfig(payload);
+        const instance = ConnectorFactory.create(
+          connector.type as ConnectorType,
+          config
+        );
+        return instance.fetchData();
+      });
 
-      res.json({ id: connector.id, type: connector.type, data });
+      res.json({ id: connector.id, type: connector.type, data: truncateRows(data) });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

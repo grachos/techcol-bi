@@ -1,13 +1,12 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
-import { maskSecrets, unmaskSecrets } from "../utils/security";
+import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
+import { getCachedConnectorData } from "../services/connector-cache";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 
 const router = Router();
-
-// TODO: reemplazar por el usuario autenticado cuando exista auth real
 
 interface ConnectorRow {
   id: number;
@@ -123,11 +122,18 @@ router.get("/:id/data", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Conector no encontrado" });
     }
 
-    const config = decryptConfig(parseStoredConfig(connector.config));
-    const instance = ConnectorFactory.create(connector.type, config);
-    const data = await instance.fetchData();
+    const data = await getCachedConnectorData(connector.id, async () => {
+      const config = decryptConfig(parseStoredConfig(connector.config));
+      const instance = ConnectorFactory.create(connector.type, config);
+      return instance.fetchData();
+    });
 
-    res.json({ id: connector.id, name: connector.name, type: connector.type, data });
+    res.json({
+      id: connector.id,
+      name: connector.name,
+      type: connector.type,
+      data: truncateRows(data),
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

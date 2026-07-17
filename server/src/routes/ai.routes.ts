@@ -9,8 +9,6 @@ import { askGroqJson } from "../services/groq";
 
 const router = Router();
 
-// TODO: reemplazar por el usuario autenticado cuando exista auth real
-
 const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
 

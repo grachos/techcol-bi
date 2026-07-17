@@ -1,6 +1,20 @@
 import dns from "dns/promises";
 import net from "net";
 
+const MAX_ROWS = 1000;
+
+/**
+ * Trunca la respuesta de un conector a MAX_ROWS filas. Protege memoria y
+ * ancho de banda cuando la fuente (REST, Sheets, Excel) no tiene su propio
+ * LIMIT -- los conectores SQL ya limitan via la query del usuario.
+ */
+export function truncateRows<T = unknown>(data: T): T {
+  if (Array.isArray(data) && data.length > MAX_ROWS) {
+    return data.slice(0, MAX_ROWS) as unknown as T;
+  }
+  return data;
+}
+
 /**
  * Marca que reemplaza a un secreto ya guardado cuando la config se envia al
  * navegador. Al editar, si el campo vuelve con esta marca significa "sin

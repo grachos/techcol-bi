@@ -1,6 +1,11 @@
 import { Client } from "pg";
 import { BaseConnector } from "./BaseConnector";
 
+/**
+ * Recomendado: usar un usuario de BD de solo lectura (GRANT SELECT ...) para
+ * `user`/`password`. El filtro FORBIDDEN de abajo es una segunda capa, no un
+ * sustituto de permisos reales a nivel de base de datos.
+ */
 export interface PostgreSQLConfig {
   host: string;
   port?: number;
@@ -63,24 +68,20 @@ export class PostgreSQLConnector extends BaseConnector {
 
   async getSchema(): Promise<{ tables: Array<{ name: string; columns: string[] }> }> {
     return this.withClient(async (client) => {
+      // Una sola consulta en vez de 1 + N (una por tabla)
       const result = await client.query(
-        `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`
+        `SELECT table_name, string_agg(column_name, ',' ORDER BY ordinal_position) AS columns
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+         GROUP BY table_name`
       );
-      const tables = result.rows.map((r: any) => r.tablename);
-      const schemaResult: Array<{ name: string; columns: string[] }> = [];
 
-      for (const tableName of tables) {
-        const columnsResult = await client.query(
-          `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
-          [tableName]
-        );
-        schemaResult.push({
-          name: tableName,
-          columns: columnsResult.rows.map((c: any) => c.column_name),
-        });
-      }
-
-      return { tables: schemaResult };
+      return {
+        tables: result.rows.map((r: any) => ({
+          name: r.table_name,
+          columns: (r.columns as string).split(","),
+        })),
+      };
     });
   }
 }
