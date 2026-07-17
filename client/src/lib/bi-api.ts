@@ -31,8 +31,9 @@ export interface ConnectorData {
 export interface ConnectorTestResult {
   ok: boolean
   error?: string
-  /** Respuesta cruda cuando la fuente no devolvio una lista (dataPath mal puesto) */
+  /** Forma de la respuesta cuando la fuente no devolvió una lista (dataPath mal puesto) */
   received?: string
+  receivedFormat?: 'json' | 'xml' | 'text'
   columns: string[]
   rows: Record<string, unknown>[]
   rowCount: number

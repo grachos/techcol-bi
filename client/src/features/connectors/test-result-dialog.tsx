@@ -90,13 +90,23 @@ export function TestResultDialog({
               {result.error}
             </div>
             {result.received && (
-              <div className='space-y-1'>
-                <p className='text-muted-foreground text-xs'>
-                  {t('The source replied with:')}
-                </p>
-                <pre className='bg-muted max-h-40 overflow-auto rounded-md p-3 font-mono text-xs'>
+              <div className='space-y-2'>
+                <div className='flex items-center justify-between'>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('The source replied with:')}
+                  </p>
+                  {result.receivedFormat && (
+                    <Badge variant='outline' className='font-mono text-[10px] uppercase'>
+                      {result.receivedFormat}
+                    </Badge>
+                  )}
+                </div>
+                <pre className='bg-muted max-h-80 overflow-auto rounded-md p-3 font-mono text-xs leading-relaxed'>
                   {result.received}
                 </pre>
+                <p className='text-muted-foreground text-xs'>
+                  {t('Trimmed to one record so the structure is readable. The data path is the key holding the list of rows.')}
+                </p>
               </div>
             )}
           </div>

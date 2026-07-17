@@ -720,6 +720,8 @@ export const es: Record<string, string> = {
   'Tested with {{from}} to {{to}}.': 'Probado con el rango {{from}} a {{to}}.',
   'The connection failed.': 'La conexión falló.',
   'The source replied with:': 'La fuente respondió con:',
+  'Trimmed to one record so the structure is readable. The data path is the key holding the list of rows.':
+    'Recortado a un registro para que se vea la estructura. La ruta de datos es la clave que contiene la lista de filas.',
   '{{count}} rows returned. Showing the first {{shown}}.':
     '{{count}} filas devueltas. Mostrando las primeras {{shown}}.',
   'The connection works, but the source returned no rows.':

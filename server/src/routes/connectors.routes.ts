@@ -3,6 +3,7 @@ import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
 import { parseRuntimeParams } from "../utils/runtime-params";
+import { buildResponsePreview } from "../utils/response-preview";
 import {
   getCachedConnectorData,
   invalidateConnectorCache,
@@ -140,16 +141,19 @@ router.post("/:id/test", async (req: Request, res: Response) => {
 
     if (!Array.isArray(data)) {
       // La fuente respondio, pero no con una lista de filas: casi siempre es
-      // un dataPath mal puesto, asi que se muestra lo que llego para poder
-      // ver donde estan realmente los datos.
+      // un dataPath mal puesto, asi que se muestra la forma de lo que llego
+      // para poder deducir donde estan realmente las filas.
+      const { preview, format } = buildResponsePreview(data);
       return res.json({
         ok: false,
         error:
-          "La fuente respondio, pero no devolvio una lista de filas. Revisa 'Data path'.",
-        received: JSON.stringify(data).slice(0, 400),
+          "La fuente respondio, pero no devolvio una lista de filas. Revisa 'Ruta de datos'.",
+        received: preview,
+        receivedFormat: format,
         columns: [],
         rows: [],
         rowCount: 0,
+        params,
       });
     }
 
