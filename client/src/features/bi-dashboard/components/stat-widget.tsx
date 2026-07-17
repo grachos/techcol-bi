@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
-import { useConnectorData, type Row } from '@/hooks/use-connector-data'
+import { useWidgetData, type Row } from '@/hooks/use-widget-data'
 import { type Widget } from '@/lib/dashboard-api'
-import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
+import { type ActiveFilters } from '@/lib/widget-filters'
+import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 function aggregate(
   rows: Row[],
@@ -43,11 +44,9 @@ interface StatWidgetProps {
 
 export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) {
   const { t } = useTranslation()
-  const { rows, error } = useConnectorData(widget.connectorId)
-
-  const filteredRows = useMemo(
-    () => applyFilters(rows, activeFilters),
-    [rows, activeFilters]
+  const { rows, filteredRows, error, isLoading } = useWidgetData(
+    widget,
+    activeFilters
   )
 
   const value = useMemo(() => {
@@ -69,16 +68,17 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
   // Widget bajito: numero mas pequeño y sin sparkline para que quepa todo
   const compact = widget.layout.h <= 3
 
+  if (isLoading) return <WidgetLoading onColor={onColor} />
   if (error) {
     return (
-      <p className={onColor ? 'text-white/90 text-xs' : 'text-destructive text-xs'}>
-        {t('Error fetching data: {{error}}', { error })}
-      </p>
+      <WidgetError
+        error={t('Error fetching data: {{error}}', { error })}
+        onColor={onColor}
+      />
     )
   }
-
   if (value === null) {
-    return <p className={`${mutedClass} text-xs`}>{t('No data yet.')}</p>
+    return <WidgetEmpty text={t('No data yet.')} onColor={onColor} />
   }
 
   return (

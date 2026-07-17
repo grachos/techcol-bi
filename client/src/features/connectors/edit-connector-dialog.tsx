@@ -145,6 +145,28 @@ export function EditConnectorDialog({
                 />
               </div>
               <div className="space-y-2">
+                <Label>{t('Query parameters')} (opcional)</Label>
+                <Textarea
+                  value={
+                    typeof config.queryParams === 'string'
+                      ? config.queryParams
+                      : JSON.stringify(config.queryParams ?? {}, null, 2)
+                  }
+                  onChange={(e) => {
+                    try {
+                      handleConfigChange('queryParams', JSON.parse(e.target.value))
+                    } catch {
+                      handleConfigChange('queryParams', e.target.value)
+                    }
+                  }}
+                  placeholder={'{"fecha_inicio": "{{from}}", "fecha_fin": "{{to}}"}'}
+                  className="min-h-20 font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('Sent to the API as ?key=value. A value can be fixed, or take the dashboard date filter using the placeholders shown in the example. Params without a value are left out of the URL.')}
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label>Headers JSON (opcional)</Label>
                 <Textarea
                   value={secretText('headers')}

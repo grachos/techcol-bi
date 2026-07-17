@@ -5,9 +5,10 @@ import { feature } from 'topojson-client'
 import type { FeatureCollection, Geometry } from 'geojson'
 import type { Topology } from 'topojson-specification'
 import worldTopo from 'world-atlas/countries-110m.json'
-import { useConnectorData, type Row } from '@/hooks/use-connector-data'
+import { useWidgetData, type Row } from '@/hooks/use-widget-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
-import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
+import { type ActiveFilters } from '@/lib/widget-filters'
+import { WidgetError, WidgetLoading } from './widget-state'
 
 const VB_W = 800
 const VB_H = 420
@@ -45,12 +46,7 @@ interface MapWidgetProps {
 
 export function MapWidget({ widget, activeFilters }: MapWidgetProps) {
   const { t } = useTranslation()
-  const { rows, error } = useConnectorData(widget.connectorId)
-
-  const filteredRows = useMemo(
-    () => applyFilters(rows, activeFilters),
-    [rows, activeFilters]
-  )
+  const { filteredRows, error, isLoading } = useWidgetData(widget, activeFilters)
 
   const { region: regionKey, value: valueKey } = useMemo(
     () => detectKeys(filteredRows, widget.xKey, widget.yKey),
@@ -76,12 +72,9 @@ export function MapWidget({ widget, activeFilters }: MapWidgetProps) {
   const solid = WIDGET_COLOR_CSS[widget.color].solid
   const hasData = valueByName.size > 0
 
+  if (isLoading) return <WidgetLoading />
   if (error) {
-    return (
-      <p className='text-destructive text-xs'>
-        {t('Error fetching data: {{error}}', { error })}
-      </p>
-    )
+    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }
 
   return (

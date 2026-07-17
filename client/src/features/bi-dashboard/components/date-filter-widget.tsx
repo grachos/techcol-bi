@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { type DateRange } from 'react-day-picker'
-import { CalendarIcon, X } from 'lucide-react'
+import { CalendarIcon, Search, X } from 'lucide-react'
 import { type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilterValue } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
@@ -17,29 +17,38 @@ interface DateFilterWidgetProps {
   onChange: (column: string, value: ActiveFilterValue | null) => void
 }
 
+/**
+ * Filtro de rango de fechas. El rango se elige localmente y solo se publica
+ * al pulsar "Consultar": aplicarlo en cada clic del calendario disparaba una
+ * consulta con el rango a medias (solo `from`), y en conectores que filtran
+ * en el origen eso significa una llamada de mas a la API externa.
+ */
 export function DateFilterWidget({ widget, onChange }: DateFilterWidgetProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === 'es' ? 'es-CO' : 'en-US'
   const [range, setRange] = useState<DateRange | undefined>()
+  const [applied, setApplied] = useState<DateRange | undefined>()
 
   const column = widget.filterColumn
 
-  const handleSelect = (value: DateRange | undefined) => {
-    setRange(value)
+  const handleApply = () => {
     if (!column) return
-    if (!value?.from && !value?.to) {
+    if (!range?.from && !range?.to) {
       onChange(column, null)
+      setApplied(undefined)
       return
     }
     onChange(column, {
       type: 'date_range',
-      from: value?.from ? value.from.toISOString() : null,
-      to: value?.to ? value.to.toISOString() : null,
+      from: range?.from ? range.from.toISOString() : null,
+      to: range?.to ? range.to.toISOString() : null,
     })
+    setApplied(range)
   }
 
   const handleClear = () => {
     setRange(undefined)
+    setApplied(undefined)
     if (column) onChange(column, null)
   }
 
@@ -58,30 +67,49 @@ export function DateFilterWidget({ widget, onChange }: DateFilterWidgetProps) {
         ? range.from.toLocaleDateString(locale)
         : t('Select a date range')
 
+  // Hay cambios sin aplicar: el boton Consultar es la accion pendiente
+  const isDirty =
+    range?.from?.getTime() !== applied?.from?.getTime() ||
+    range?.to?.getTime() !== applied?.to?.getTime()
+
   return (
     <div className='flex h-full flex-col items-center justify-center gap-2'>
       <Popover>
         <PopoverTrigger asChild>
           <Button variant='outline' className='w-full justify-start'>
             <CalendarIcon className='me-2 size-4' />
-            {label}
+            <span className='truncate'>{label}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className='w-auto p-0' align='start'>
           <Calendar
             mode='range'
             selected={range}
-            onSelect={handleSelect}
+            onSelect={setRange}
             numberOfMonths={1}
           />
         </PopoverContent>
       </Popover>
-      {range?.from && (
-        <Button variant='ghost' size='sm' onClick={handleClear}>
-          <X className='me-1 size-3.5' /> {t('Clear filter')}
+
+      <div className='flex w-full gap-1'>
+        <Button
+          size='sm'
+          className='flex-1'
+          onClick={handleApply}
+          disabled={!isDirty}
+        >
+          <Search className='me-1 size-3.5' />
+          {t('Query')}
         </Button>
-      )}
-      <p className='text-muted-foreground text-xs'>
+        {(applied?.from || range?.from) && (
+          <Button variant='ghost' size='sm' onClick={handleClear}>
+            <X className='size-3.5' />
+            <span className='sr-only'>{t('Clear filter')}</span>
+          </Button>
+        )}
+      </div>
+
+      <p className='text-muted-foreground truncate text-xs'>
         {t('Filters column "{{column}}"', { column })}
       </p>
     </div>

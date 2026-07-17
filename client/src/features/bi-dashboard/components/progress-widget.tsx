@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useConnectorData, type Row } from '@/hooks/use-connector-data'
+import { useWidgetData, type Row } from '@/hooks/use-widget-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
-import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
+import { type ActiveFilters } from '@/lib/widget-filters'
+import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 const MAX_ROWS = 12
 
@@ -35,11 +36,9 @@ interface ProgressWidgetProps {
 
 export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
   const { t } = useTranslation()
-  const { rows, error } = useConnectorData(widget.connectorId)
-
-  const filteredRows = useMemo(
-    () => applyFilters(rows, activeFilters),
-    [rows, activeFilters]
+  const { rows, filteredRows, error, isLoading } = useWidgetData(
+    widget,
+    activeFilters
   )
 
   const { x: labelKey, y: valueKey } = useMemo(
@@ -59,22 +58,13 @@ export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
     return list.map((it) => ({ ...it, pct: Math.round((it.value / max) * 100) }))
   }, [filteredRows, labelKey, valueKey])
 
+  if (isLoading) return <WidgetLoading />
   if (error) {
-    return (
-      <p className='text-destructive text-xs'>
-        {t('Error fetching data: {{error}}', { error })}
-      </p>
-    )
+    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }
-  if (rows.length === 0) {
-    return <p className='text-muted-foreground text-xs'>{t('No data yet.')}</p>
-  }
+  if (rows.length === 0) return <WidgetEmpty text={t('No data yet.')} />
   if (items.length === 0) {
-    return (
-      <p className='text-muted-foreground text-xs'>
-        {t('No numeric columns to chart')}
-      </p>
-    )
+    return <WidgetEmpty text={t('No numeric columns to chart')} />
   }
 
   return (

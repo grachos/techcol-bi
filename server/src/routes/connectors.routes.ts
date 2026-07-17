@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
+import { parseRuntimeParams } from "../utils/runtime-params";
 import { getCachedConnectorData } from "../services/connector-cache";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
@@ -122,10 +123,11 @@ router.get("/:id/data", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Conector no encontrado" });
     }
 
-    const data = await getCachedConnectorData(connector.id, async () => {
+    const params = parseRuntimeParams(req.query);
+    const data = await getCachedConnectorData(connector.id, params, async () => {
       const config = decryptConfig(parseStoredConfig(connector.config));
       const instance = ConnectorFactory.create(connector.type, config);
-      return instance.fetchData();
+      return instance.fetchData(params);
     });
 
     res.json({

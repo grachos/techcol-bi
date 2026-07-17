@@ -10,6 +10,36 @@ export type ActiveFilterValue =
 
 export type ActiveFilters = Record<string, ActiveFilterValue>
 
+/** Parametros que viajan al conector para filtrar en el origen. */
+export type RuntimeParams = Record<string, string>
+
+/** Fecha en formato YYYY-MM-DD (lo que espera una API de filtros por fecha). */
+function toApiDate(iso: string): string {
+  return new Date(iso).toISOString().slice(0, 10)
+}
+
+/**
+ * Traduce los filtros activos a parametros para el backend. Solo los usan los
+ * conectores parametrizados (los que declaran `queryParams` con plantillas
+ * {{from}}/{{to}}); para el resto el filtrado sigue siendo del lado del
+ * cliente via applyFilters().
+ *
+ * Se toma el primer rango de fechas activo: la API recibe un unico
+ * fecha_inicio/fecha_fin, no un rango por columna.
+ */
+export function filtersToParams(filters: ActiveFilters): RuntimeParams {
+  const range = Object.values(filters).find(
+    (f): f is Extract<ActiveFilterValue, { type: 'date_range' }> =>
+      f.type === 'date_range'
+  )
+  if (!range) return {}
+
+  const params: RuntimeParams = {}
+  if (range.from) params.from = toApiDate(range.from)
+  if (range.to) params.to = toApiDate(range.to)
+  return params
+}
+
 export function applyFilters<T extends Record<string, unknown>>(
   rows: T[],
   filters: ActiveFilters

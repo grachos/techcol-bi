@@ -4,6 +4,7 @@ import { pool } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { truncateRows } from "../utils/security";
+import { parseRuntimeParams } from "../utils/runtime-params";
 import { getCachedConnectorData } from "../services/connector-cache";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { ConnectorType } from "../connectors/BaseConnector";
@@ -196,7 +197,8 @@ router.get(
         return res.status(404).json({ error: "Conector no encontrado" });
       }
 
-      const data = await getCachedConnectorData(connector.id, async () => {
+      const params = parseRuntimeParams(req.query);
+      const data = await getCachedConnectorData(connector.id, params, async () => {
         const raw: string | EncryptedPayload = connector.config;
         const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
         const config = decryptConfig(payload);
@@ -204,7 +206,7 @@ router.get(
           connector.type as ConnectorType,
           config
         );
-        return instance.fetchData();
+        return instance.fetchData(params);
       });
 
       res.json({ id: connector.id, type: connector.type, data: truncateRows(data) });

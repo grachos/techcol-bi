@@ -45,6 +45,12 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/** Serializa los filtros como query string ('' si no hay ninguno). */
+function toQuery(params: Record<string, string>): string {
+  const qs = new URLSearchParams(params).toString()
+  return qs ? `?${qs}` : ''
+}
+
 export const biApi = {
   list: (): Promise<Connector[]> =>
     apiFetch('/api/connectors').then((r) => handle<Connector[]>(r)),
@@ -86,8 +92,8 @@ export const biApi = {
       handle(r)
     ),
 
-  data: (id: number): Promise<ConnectorData> =>
-    apiFetch(`/api/connectors/${id}/data`).then((r) => handle(r)),
+  data: (id: number, params: Record<string, string> = {}): Promise<ConnectorData> =>
+    apiFetch(`/api/connectors/${id}/data${toQuery(params)}`).then((r) => handle(r)),
 
   preview: (
     id: number,
@@ -121,10 +127,14 @@ export const biApi = {
     getShared: (token: string) =>
       fetch(`/api/dashboards/share/${token}`).then((r) => handle(r)),
 
-    dataShared: (token: string, connectorId: number): Promise<ConnectorData> =>
-      fetch(`/api/dashboards/share/${token}/connectors/${connectorId}/data`).then(
-        (r) => handle(r)
-      ),
+    dataShared: (
+      token: string,
+      connectorId: number,
+      params: Record<string, string> = {}
+    ): Promise<ConnectorData> =>
+      fetch(
+        `/api/dashboards/share/${token}/connectors/${connectorId}/data${toQuery(params)}`
+      ).then((r) => handle(r)),
   },
 }
 

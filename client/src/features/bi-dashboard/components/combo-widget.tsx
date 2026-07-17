@@ -11,10 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useConnectorData, type Row } from '@/hooks/use-connector-data'
+import { useWidgetData, type Row } from '@/hooks/use-widget-data'
 import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
 import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
-import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
+import { type ActiveFilters } from '@/lib/widget-filters'
+import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 /** Detecta el eje X (texto) y hasta dos series numericas para superponer */
 function detectSeries(rows: Row[], xKey: string | null, yKey: string | null) {
@@ -39,11 +40,9 @@ interface ComboWidgetProps {
 
 export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   const { t } = useTranslation()
-  const { rows, error } = useConnectorData(widget.connectorId)
-
-  const filteredRows = useMemo(
-    () => applyFilters(rows, activeFilters),
-    [rows, activeFilters]
+  const { rows, filteredRows, error, isLoading } = useWidgetData(
+    widget,
+    activeFilters
   )
 
   const { x: xKey, bars, line } = useMemo(
@@ -61,23 +60,13 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
     [filteredRows, bars, line]
   )
 
+  if (isLoading) return <WidgetLoading />
   if (error) {
-    return (
-      <p className='text-destructive text-xs'>
-        {t('Error fetching data: {{error}}', { error })}
-      </p>
-    )
+    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }
-  if (rows.length === 0) {
-    return <p className='text-muted-foreground text-xs'>{t('No data yet.')}</p>
-  }
-  if (!bars) {
-    return (
-      <p className='text-muted-foreground text-xs'>
-        {t('No numeric columns to chart')}
-      </p>
-    )
-  }
+  if (rows.length === 0) return <WidgetEmpty text={t('No data yet.')} />
+  if (!bars) return <WidgetEmpty text={t('No numeric columns to chart')} />
+
 
   const barColor = WIDGET_COLOR_CSS[widget.color].solid
   const lineColor = WIDGET_COLOR_CSS.pink.solid

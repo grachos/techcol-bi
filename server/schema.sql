@@ -33,26 +33,36 @@ CREATE TABLE IF NOT EXISTS connectors (
   INDEX idx_connectors_user (user_id)
 );
 
--- Cache de datos obtenidos por conector: una sola fila por conector (TTL de
--- 60s aplicado en la app), para no golpear la fuente en cada refresh de
--- cada widget que la use.
+-- Cache de datos obtenidos por conector (TTL de 60s aplicado en la app), para
+-- no golpear la fuente en cada refresh de cada widget que la use.
+-- La llave incluye params_hash porque los conectores parametrizados (filtros
+-- que viajan al origen como query params) devuelven datos distintos por cada
+-- combinacion de filtros: cachear solo por connector_id serviria el rango de
+-- fechas equivocado. '' = consulta sin parametros.
 CREATE TABLE IF NOT EXISTS connector_data (
   id INT PRIMARY KEY AUTO_INCREMENT,
   connector_id INT NOT NULL,
+  params_hash VARCHAR(64) NOT NULL DEFAULT '',
   data JSON,
   fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (connector_id) REFERENCES connectors(id) ON DELETE CASCADE,
-  UNIQUE INDEX uq_connector_data_connector (connector_id)
+  UNIQUE INDEX uq_connector_data_connector (connector_id, params_hash)
 );
 
 -- Migracion idempotente: bases creadas antes de que connector_data se usara
 -- como cache pueden tener duplicados por connector_id; quedarse con el mas
 -- reciente antes de aplicar el UNIQUE INDEX.
+ALTER TABLE connector_data
+  ADD COLUMN IF NOT EXISTS params_hash VARCHAR(64) NOT NULL DEFAULT '' AFTER connector_id;
 DELETE cd1 FROM connector_data cd1
 INNER JOIN connector_data cd2
-  ON cd1.connector_id = cd2.connector_id AND cd1.id < cd2.id;
+  ON cd1.connector_id = cd2.connector_id
+  AND cd1.params_hash = cd2.params_hash
+  AND cd1.id < cd2.id;
 ALTER TABLE connector_data
-  ADD UNIQUE INDEX IF NOT EXISTS uq_connector_data_connector (connector_id);
+  DROP INDEX IF EXISTS uq_connector_data_connector;
+ALTER TABLE connector_data
+  ADD UNIQUE INDEX IF NOT EXISTS uq_connector_data_connector (connector_id, params_hash);
 
 -- Dashboards personalizables por usuario
 CREATE TABLE IF NOT EXISTS dashboards (

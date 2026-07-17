@@ -705,7 +705,12 @@ export const es: Record<string, string> = {
   'This filter has no target column configured.':
     'Este filtro no tiene una columna objetivo configurada.',
   'Select a date range': 'Selecciona un rango de fechas',
+  Query: 'Consultar',
   'Clear filter': 'Limpiar filtro',
+  'Query parameters': 'Parámetros de consulta',
+  'Sent to the API as ?key=value. A value can be fixed, or take the dashboard date filter using the placeholders shown in the example. Params without a value are left out of the URL.':
+    'Se envían a la API como ?clave=valor. El valor puede ser fijo, o tomar el filtro de fechas del dashboard usando las plantillas del ejemplo. Los parámetros sin valor se omiten de la URL.',
+  '•••• saved — type to replace': '•••• guardado — escribe para reemplazar',
   'Filters column "{{column}}"': 'Filtra la columna "{{column}}"',
   All: 'Todos',
   "Could not detect this connector's columns; type the column name manually.":
