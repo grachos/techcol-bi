@@ -6,6 +6,7 @@ import {
   biApi,
   CONNECTOR_TYPE_LABELS,
   type Connector,
+  type ConnectorTestResult,
   type ConnectorType,
 } from '@/lib/bi-api'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +37,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { EditConnectorDialog } from './edit-connector-dialog'
+import { TestResultDialog } from './test-result-dialog'
 import { PreviewQueryDialog } from './preview-query-dialog'
 
 type FormState = {
@@ -46,6 +48,7 @@ type FormState = {
   method: string
   headers: string
   dataPath: string
+  queryParams: string
   // rest_api - autenticación encadenada
   authUrl: string
   authMethod: string
@@ -88,6 +91,7 @@ const EMPTY_FORM: FormState = {
   method: 'GET',
   headers: '',
   dataPath: '',
+  queryParams: '',
   authUrl: '',
   authMethod: 'POST',
   authBody: '',
@@ -131,11 +135,16 @@ function buildConfig(form: FormState): Record<string, unknown> {
       if (form.authBody.trim()) {
         authBody = JSON.parse(form.authBody)
       }
+      let queryParams: Record<string, string> | undefined
+      if (form.queryParams.trim()) {
+        queryParams = JSON.parse(form.queryParams)
+      }
       return {
         url: form.url,
         method: form.method,
         ...(headers ? { headers } : {}),
         ...(form.dataPath ? { dataPath: form.dataPath } : {}),
+        ...(queryParams ? { queryParams } : {}),
         // Autenticación encadenada
         ...(form.authUrl ? { authUrl: form.authUrl } : {}),
         ...(form.authUrl ? { authMethod: form.authMethod } : {}),
@@ -226,6 +235,10 @@ export function Connectors() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingConnector, setEditingConnector] = useState<(Connector & { config: Record<string, unknown> }) | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+  const [testResult, setTestResult] = useState<{
+    name: string
+    result: ConnectorTestResult
+  } | null>(null)
 
   const set = (field: keyof FormState) => (value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -317,9 +330,9 @@ export function Connectors() {
   const handleTest = async (c: Connector) => {
     setBusyId(c.id)
     try {
-      const { ok } = await biApi.test(c.id)
-      if (ok) toast.success(t('"{{name}}" connects successfully', { name: c.name }))
-      else toast.error(t('"{{name}}" could not connect', { name: c.name }))
+      const result = await biApi.test(c.id)
+      // El detalle (columnas y filas) va al dialogo; el toast solo confirma
+      setTestResult({ name: c.name, result })
     } catch (error) {
       toast.error(String(error instanceof Error ? error.message : error))
     } finally {
@@ -453,6 +466,24 @@ export function Connectors() {
                         onChange={(e) => set('dataPath')(e.target.value)}
                       />
                     </div>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor='queryParams'>
+                      {t('Query parameters')}{' '}
+                      <span className='text-muted-foreground'>
+                        {t('(optional)')}
+                      </span>
+                    </Label>
+                    <Textarea
+                      id='queryParams'
+                      placeholder={'{"fecha_inicial": "{{from}}", "fecha_final": "{{to}}"}'}
+                      value={form.queryParams}
+                      onChange={(e) => set('queryParams')(e.target.value)}
+                      className='min-h-16 font-mono text-sm'
+                    />
+                    <p className='text-xs text-muted-foreground'>
+                      {t('Sent to the API as ?key=value. A value can be fixed, or take the dashboard date filter using the placeholders shown in the example. Params without a value are left out of the URL.')}
+                    </p>
                   </div>
                   <div className='space-y-2'>
                     <Label htmlFor='headers'>
@@ -969,6 +1000,15 @@ export function Connectors() {
         onOpenChange={setPreviewDialogOpen}
         connectorType={(form.type === 'mysql' || form.type === 'postgresql' ? form.type : 'mysql') as 'mysql' | 'postgresql'}
         onQueryChange={(newQuery) => set('query')(newQuery)}
+      />
+
+      <TestResultDialog
+        connectorName={testResult?.name ?? ''}
+        result={testResult?.result ?? null}
+        open={!!testResult}
+        onOpenChange={(open) => {
+          if (!open) setTestResult(null)
+        }}
       />
     </>
   )

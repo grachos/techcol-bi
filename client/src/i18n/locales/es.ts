@@ -714,6 +714,16 @@ export const es: Record<string, string> = {
   Query: 'Consultar',
   'Clear filter': 'Limpiar filtro',
   'Query parameters': 'Parámetros de consulta',
+  'Sample rows': 'Filas de ejemplo',
+  'Columns copied': 'Columnas copiadas',
+  Copy: 'Copiar',
+  'Tested with {{from}} to {{to}}.': 'Probado con el rango {{from}} a {{to}}.',
+  'The connection failed.': 'La conexión falló.',
+  'The source replied with:': 'La fuente respondió con:',
+  '{{count}} rows returned. Showing the first {{shown}}.':
+    '{{count}} filas devueltas. Mostrando las primeras {{shown}}.',
+  'The connection works, but the source returned no rows.':
+    'La conexión funciona, pero la fuente no devolvió ninguna fila.',
   'Sent to the API as ?key=value. A value can be fixed, or take the dashboard date filter using the placeholders shown in the example. Params without a value are left out of the URL.':
     'Se envían a la API como ?clave=valor. El valor puede ser fijo, o tomar el filtro de fechas del dashboard usando las plantillas del ejemplo. Los parámetros sin valor se omiten de la URL.',
   '•••• saved — type to replace': '•••• guardado — escribe para reemplazar',

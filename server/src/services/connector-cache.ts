@@ -24,6 +24,19 @@ function hashParams(params: RuntimeParams): string {
  * Los conectores parametrizados cachean por separado cada combinacion de
  * filtros, para no servir el rango de fechas equivocado.
  */
+/**
+ * Descarta lo cacheado de un conector. Se llama al editarlo: la llave del
+ * cache no incluye la config, asi que un cambio de URL/query dejaria datos
+ * viejos vigentes hasta que venciera el TTL.
+ */
+export async function invalidateConnectorCache(
+  connectorId: number
+): Promise<void> {
+  await pool.query("DELETE FROM connector_data WHERE connector_id = ?", [
+    connectorId,
+  ]);
+}
+
 export async function getCachedConnectorData(
   connectorId: number,
   params: RuntimeParams,

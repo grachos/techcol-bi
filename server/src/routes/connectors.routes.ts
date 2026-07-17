@@ -3,7 +3,10 @@ import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
 import { parseRuntimeParams } from "../utils/runtime-params";
-import { getCachedConnectorData } from "../services/connector-cache";
+import {
+  getCachedConnectorData,
+  invalidateConnectorCache,
+} from "../services/connector-cache";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 
@@ -90,7 +93,33 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-// Probar conexion de un conector existente
+const SAMPLE_ROWS = 10;
+const TEST_RANGE_DAYS = 7;
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Rango por defecto para la prueba. Las fuentes parametrizadas por fecha
+ * suelen exigir los filtros (responden 400 sin ellos), asi que probar sin
+ * fechas fallaria siempre. Los conectores que no declaran {{from}}/{{to}} lo
+ * ignoran, asi que mandarlo siempre es inocuo.
+ */
+function defaultTestParams(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to.getTime() - TEST_RANGE_DAYS * 86_400_000);
+  return { from: isoDate(from), to: isoDate(to) };
+}
+
+/**
+ * Probar la conexion y devolver una muestra: columnas + primeras filas.
+ * Sin esto el usuario no sabe que columnas expone la fuente y tiene que
+ * adivinarlas al configurar los widgets.
+ *
+ * Va siempre a la fuente (no usa el cache): es una prueba de que la conexion
+ * funciona AHORA, y suele ejecutarse justo despues de corregir la config.
+ */
 router.post("/:id/test", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
@@ -104,10 +133,51 @@ router.post("/:id/test", async (req: Request, res: Response) => {
 
     const config = decryptConfig(parseStoredConfig(connector.config));
     const instance = ConnectorFactory.create(connector.type, config);
-    const ok = await instance.testConnection();
-    res.json({ ok });
+
+    const requested = parseRuntimeParams(req.query);
+    const params = { ...defaultTestParams(), ...requested };
+    const data = await instance.fetchData(params);
+
+    if (!Array.isArray(data)) {
+      // La fuente respondio, pero no con una lista de filas: casi siempre es
+      // un dataPath mal puesto, asi que se muestra lo que llego para poder
+      // ver donde estan realmente los datos.
+      return res.json({
+        ok: false,
+        error:
+          "La fuente respondio, pero no devolvio una lista de filas. Revisa 'Data path'.",
+        received: JSON.stringify(data).slice(0, 400),
+        columns: [],
+        rows: [],
+        rowCount: 0,
+      });
+    }
+
+    const objectRows = data.filter(
+      (r): r is Record<string, unknown> => typeof r === "object" && r !== null
+    );
+    // Union de claves de la muestra: algunas fuentes omiten campos nulos en
+    // ciertas filas, asi que mirar solo la primera perderia columnas.
+    const columns = Array.from(
+      new Set(objectRows.slice(0, SAMPLE_ROWS).flatMap((r) => Object.keys(r)))
+    );
+
+    res.json({
+      ok: true,
+      columns,
+      rows: objectRows.slice(0, SAMPLE_ROWS),
+      rowCount: data.length,
+      params,
+    });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.json({
+      ok: false,
+      error: error.message ?? "Error desconocido",
+      columns: [],
+      rows: [],
+      rowCount: 0,
+      params: { ...defaultTestParams(), ...parseRuntimeParams(req.query) },
+    });
   }
 });
 
@@ -229,6 +299,12 @@ router.put("/:id", async (req: Request, res: Response) => {
       "UPDATE connectors SET name = ?, config = ? WHERE id = ? AND user_id = ?",
       [name, JSON.stringify(encrypted), req.params.id, req.userId]
     );
+
+    // El cache se indexa por conector + filtros, no por config: sin esto, tras
+    // cambiar la URL o la query se seguirian sirviendo los datos viejos hasta
+    // que venza el TTL.
+    await invalidateConnectorCache(connector.id);
+
     res.json({ id: connector.id, name, type: connector.type });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

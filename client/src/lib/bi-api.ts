@@ -27,6 +27,19 @@ export interface ConnectorData {
   data: unknown
 }
 
+/** Resultado de "Probar": columnas y primeras filas que expone la fuente. */
+export interface ConnectorTestResult {
+  ok: boolean
+  error?: string
+  /** Respuesta cruda cuando la fuente no devolvio una lista (dataPath mal puesto) */
+  received?: string
+  columns: string[]
+  rows: Record<string, unknown>[]
+  rowCount: number
+  /** Filtros con que se hizo la prueba (rango por defecto si no se indicó) */
+  params?: Record<string, string>
+}
+
 export const CONNECTOR_TYPE_LABELS: Record<ConnectorType, string> = {
   rest_api: 'API REST',
   google_sheets: 'Google Sheets',
@@ -87,7 +100,7 @@ export const biApi = {
       handle(r)
     ),
 
-  test: (id: number): Promise<{ ok: boolean }> =>
+  test: (id: number): Promise<ConnectorTestResult> =>
     apiFetch(`/api/connectors/${id}/test`, { method: 'POST' }).then((r) =>
       handle(r)
     ),
