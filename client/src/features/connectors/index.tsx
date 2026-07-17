@@ -143,7 +143,10 @@ function buildConfig(form: FormState): Record<string, unknown> {
         ...(authHeaders ? { authHeaders } : {}),
         ...(form.authTokenPath ? { authTokenPath: form.authTokenPath } : {}),
         ...(form.tokenHeaderKey ? { tokenHeaderKey: form.tokenHeaderKey } : {}),
-        ...(form.tokenHeaderPrefix ? { tokenHeaderPrefix: form.tokenHeaderPrefix } : {}),
+        // Se manda siempre (aunque este vacio): hay APIs que esperan el token
+        // crudo, sin prefijo. Omitirlo aqui haria que el servidor aplicara su
+        // default "Bearer " y no habria forma de configurar "sin prefijo".
+        ...(form.authUrl ? { tokenHeaderPrefix: form.tokenHeaderPrefix } : {}),
       }
     }
     case 'google_sheets': {
@@ -584,6 +587,9 @@ export function Connectors() {
                           value={form.tokenHeaderPrefix}
                           onChange={(e) => set('tokenHeaderPrefix')(e.target.value)}
                         />
+                        <p className='text-xs text-muted-foreground'>
+                          {t('Leave empty if the API expects the raw token.')}
+                        </p>
                       </div>
                     </div>
                   </div>

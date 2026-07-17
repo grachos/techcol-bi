@@ -116,6 +116,8 @@ export const es: Record<string, string> = {
   'Token path in response': 'Ruta del token en la respuesta',
   'Authentication body (JSON)': 'Cuerpo de autenticación (JSON)',
   'Authentication body': 'Cuerpo de autenticación',
+  'Leave empty if the API expects the raw token.':
+    'Déjalo vacío si la API espera el token sin prefijo.',
   'Body format': 'Formato del cuerpo',
   'Write the fields as JSON; the format below decides how they are sent.':
     'Escribe los campos como JSON; el formato de abajo decide cómo se envían.',
