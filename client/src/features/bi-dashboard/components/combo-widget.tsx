@@ -40,10 +40,8 @@ interface ComboWidgetProps {
 
 export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   const { t } = useTranslation()
-  const { rows, filteredRows, error, isLoading } = useWidgetData(
-    widget,
-    activeFilters
-  )
+  const { rows, filteredRows, error, isLoading, needsDateFilter } =
+    useWidgetData(widget, activeFilters)
 
   const { x: xKey, bars, line } = useMemo(
     () => detectSeries(filteredRows, widget.xKey, widget.yKey),
@@ -61,6 +59,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   )
 
   if (isLoading) return <WidgetLoading />
+  if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
   if (error) {
     return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }

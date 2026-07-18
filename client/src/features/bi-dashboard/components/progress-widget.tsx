@@ -36,10 +36,8 @@ interface ProgressWidgetProps {
 
 export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
   const { t } = useTranslation()
-  const { rows, filteredRows, error, isLoading } = useWidgetData(
-    widget,
-    activeFilters
-  )
+  const { rows, filteredRows, error, isLoading, needsDateFilter } =
+    useWidgetData(widget, activeFilters)
 
   const { x: labelKey, y: valueKey } = useMemo(
     () => detectKeys(filteredRows, widget.xKey, widget.yKey),
@@ -59,6 +57,7 @@ export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
   }, [filteredRows, labelKey, valueKey])
 
   if (isLoading) return <WidgetLoading />
+  if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
   if (error) {
     return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }

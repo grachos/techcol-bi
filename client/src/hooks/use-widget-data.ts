@@ -31,7 +31,22 @@ export function useWidgetData(widget: Widget, activeFilters: ActiveFilters) {
     [rows, activeFilters]
   )
 
-  return { rows, filteredRows, error, isLoading }
+  // Un conector REST que falla sin filtros suele estar esperando un rango de
+  // fechas (muchas APIs responden error si faltan). En vez del error crudo se
+  // sugiere elegir un rango; una vez aplicado, si vuelve a fallar, se muestra
+  // el error real.
+  const needsDateFilter =
+    !!error &&
+    widget.connectorType === 'rest_api' &&
+    Object.keys(params).length === 0
+
+  return {
+    rows,
+    filteredRows,
+    error: needsDateFilter ? null : error,
+    needsDateFilter,
+    isLoading,
+  }
 }
 
 export type { Row }

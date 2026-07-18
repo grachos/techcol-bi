@@ -643,6 +643,8 @@ export const es: Record<string, string> = {
   'Widget deleted': 'Widget eliminado',
   'Widget options': 'Opciones del widget',
   'No data yet.': 'Aún no hay datos.',
+  'Choose a date range and press Query.':
+    'Elige un rango de fechas y pulsa Consultar.',
   'Give the widget a title and choose a connector':
     'Ponle un título al widget y elige un conector',
   'Widget updated': 'Widget actualizado',

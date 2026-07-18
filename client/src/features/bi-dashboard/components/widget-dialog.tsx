@@ -234,7 +234,9 @@ export function WidgetDialog({
     }
   }, [open, widget, aiSuggestion, aiEditSuggestion, connectors])
 
-  // Trae una muestra de datos del conector elegido para conocer sus columnas reales
+  // Detecta las columnas reales del conector via "probar": ese endpoint aplica
+  // un rango de fechas por defecto (las APIs parametrizadas por fecha devuelven
+  // vacio sin el) y ya reune las columnas de una muestra, no solo de la 1a fila.
   useEffect(() => {
     if (!open || !connectorId) {
       setColumns([])
@@ -243,15 +245,10 @@ export function WidgetDialog({
     let cancelled = false
     setColumnsLoading(true)
     biApi
-      .data(Number(connectorId))
+      .test(Number(connectorId))
       .then((result) => {
         if (cancelled) return
-        const rows = Array.isArray(result.data) ? result.data : []
-        const firstRow = rows.find(
-          (r): r is Record<string, unknown> =>
-            typeof r === 'object' && r !== null
-        )
-        setColumns(firstRow ? Object.keys(firstRow) : [])
+        setColumns(result.ok ? result.columns : [])
       })
       .catch(() => {
         if (!cancelled) setColumns([])

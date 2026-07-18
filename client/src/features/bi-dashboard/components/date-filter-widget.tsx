@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { type DateRange } from 'react-day-picker'
 import { CalendarIcon, Search, X } from 'lucide-react'
 import { type Widget } from '@/lib/dashboard-api'
-import { type ActiveFilterValue } from '@/lib/widget-filters'
+import { toLocalDay, type ActiveFilterValue } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -38,10 +38,13 @@ export function DateFilterWidget({ widget, onChange }: DateFilterWidgetProps) {
       setApplied(undefined)
       return
     }
+    // Se guarda el dia calendario local (YYYY-MM-DD), no un timestamp: el
+    // usuario elige un dia, no un instante. Usar toISOString() lo desplazaba a
+    // UTC y descartaba filas del mismo dia por diferencia de zona horaria.
     onChange(column, {
       type: 'date_range',
-      from: range?.from ? range.from.toISOString() : null,
-      to: range?.to ? range.to.toISOString() : null,
+      from: range?.from ? toLocalDay(range.from) : null,
+      to: range?.to ? toLocalDay(range.to) : null,
     })
     setApplied(range)
   }

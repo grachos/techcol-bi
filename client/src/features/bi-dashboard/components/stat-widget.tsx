@@ -44,10 +44,8 @@ interface StatWidgetProps {
 
 export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) {
   const { t } = useTranslation()
-  const { rows, filteredRows, error, isLoading } = useWidgetData(
-    widget,
-    activeFilters
-  )
+  const { rows, filteredRows, error, isLoading, needsDateFilter } =
+    useWidgetData(widget, activeFilters)
 
   const value = useMemo(() => {
     if (!widget.yKey && widget.aggregation !== 'count') return null
@@ -69,6 +67,9 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
   const compact = widget.layout.h <= 3
 
   if (isLoading) return <WidgetLoading onColor={onColor} />
+  if (needsDateFilter) {
+    return <WidgetEmpty text={t('Choose a date range and press Query.')} onColor={onColor} />
+  }
   if (error) {
     return (
       <WidgetError
