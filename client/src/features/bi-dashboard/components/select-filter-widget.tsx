@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
-import { useConnectorData } from '@/hooks/use-connector-data'
+import { useWidgetData } from '@/hooks/use-widget-data'
 import { type Widget } from '@/lib/dashboard-api'
-import { type ActiveFilterValue } from '@/lib/widget-filters'
+import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -11,18 +11,27 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 interface SelectFilterWidgetProps {
   widget: Widget
+  activeFilters: ActiveFilters
   onChange: (column: string, value: ActiveFilterValue | null) => void
 }
 
 export function SelectFilterWidget({
   widget,
+  activeFilters,
   onChange,
 }: SelectFilterWidgetProps) {
   const { t } = useTranslation()
-  const { rows, error } = useConnectorData(widget.connectorId)
+  // Las opciones se calculan sobre `rows` (todas las filas traidas, sin el
+  // recorte de applyFilters): un select de valores no debe reducirse por los
+  // demas filtros activos, solo la consulta al origen usa el rango de fechas.
+  const { rows, error, isLoading, needsDateFilter } = useWidgetData(
+    widget,
+    activeFilters
+  )
   const [selectedValues, setSelectedValues] = useState<Set<string>>(new Set())
   const [popoverOpen, setPopoverOpen] = useState(false)
 
@@ -74,12 +83,12 @@ export function SelectFilterWidget({
     )
   }
 
+  if (isLoading) return <WidgetLoading />
+  if (needsDateFilter) {
+    return <WidgetEmpty text={t('Choose a date range and press Query.')} />
+  }
   if (error) {
-    return (
-      <p className='text-destructive text-xs'>
-        {t('Error fetching data: {{error}}', { error })}
-      </p>
-    )
+    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
   }
 
   const isAllSelected = selectedValues.size === options.length

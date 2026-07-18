@@ -168,7 +168,11 @@ export function WidgetCard({
           <DateFilterWidget widget={widget} onChange={onFilterChange} />
         )}
         {widget.kind === 'filter_select' && (
-          <SelectFilterWidget widget={widget} onChange={onFilterChange} />
+          <SelectFilterWidget
+            widget={widget}
+            activeFilters={activeFilters}
+            onChange={onFilterChange}
+          />
         )}
       </CardContent>
     </Card>

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Calendar } from '@/components/ui/calendar'
-import { useConnectorData } from '@/hooks/use-connector-data'
+import { useWidgetData } from '@/hooks/use-widget-data'
 import { type Widget } from '@/lib/dashboard-api'
-import { applyFilters, type ActiveFilters } from '@/lib/widget-filters'
+import { type ActiveFilters } from '@/lib/widget-filters'
 
 interface CalendarWidgetProps {
   widget: Widget
@@ -11,16 +11,20 @@ interface CalendarWidgetProps {
 
 /** Widget informativo: calendario del mes, resalta fechas que aparecen en un conector (opcional) */
 export function CalendarWidget({ widget, activeFilters }: CalendarWidgetProps) {
-  const { rows } = useConnectorData(widget.connectorId && widget.xKey ? widget.connectorId : null)
+  // useWidgetData ya envia los parametros de fecha al origen cuando aplica
+  // (conectores REST parametrizados) y aplica applyFilters() sobre el resultado.
+  const { filteredRows } = useWidgetData(
+    { ...widget, connectorId: widget.xKey ? widget.connectorId : null },
+    activeFilters
+  )
   const [month, setMonth] = useState<Date>(new Date())
 
   const highlightedDates = useMemo(() => {
     if (!widget.xKey) return []
-    const filtered = applyFilters(rows, activeFilters)
-    return filtered
+    return filteredRows
       .map((r) => new Date(String(r[widget.xKey as string])))
       .filter((d) => !isNaN(d.getTime()))
-  }, [rows, widget.xKey, activeFilters])
+  }, [filteredRows, widget.xKey])
 
   return (
     <div className='flex h-full items-center justify-center overflow-auto'>

@@ -86,15 +86,15 @@ export function EditConnectorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-4 pe-12">
           <DialogTitle>{t('Edit Connector')}</DialogTitle>
           <DialogDescription>
             {t('Update connector details and configuration')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-name">{t('Name')}</Label>
             <Input
@@ -107,7 +107,7 @@ export function EditConnectorDialog({
 
           <div className="space-y-2">
             <Label>{t('Type')}</Label>
-            <div className="p-3 bg-muted rounded text-sm">{connector.type}</div>
+            <div className="p-3 bg-muted rounded-md text-sm">{connector.type}</div>
           </div>
 
           {/* Config fields por tipo de conector */}
@@ -187,7 +187,7 @@ export function EditConnectorDialog({
               </div>
 
               {/* Autenticación encadenada */}
-              <div className="border-t pt-4 mt-4 space-y-4">
+              <div className="rounded-md border bg-muted/30 p-4 space-y-4">
                 <Label className="text-sm font-semibold block">Autenticación encadenada (opcional)</Label>
                 <div className="space-y-2">
                   <Label className="text-xs">URL de autenticación</Label>
@@ -391,7 +391,7 @@ export function EditConnectorDialog({
               </div>
 
               {/* Múltiples hojas y relaciones */}
-              <div className="border-t pt-4 mt-4 space-y-4">
+              <div className="rounded-md border bg-muted/30 p-4 space-y-4">
                 <Label className="text-sm font-semibold block">
                   Múltiples hojas y relaciones (opcional)
                 </Label>
@@ -424,7 +424,7 @@ export function EditConnectorDialog({
           )}
 
           {connector.type === 'csv' && (
-            <div className="p-3 bg-muted rounded text-sm text-muted-foreground">
+            <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
               {t('CSV connectors are read-only. The file is stored as base64 in the database.')}
             </div>
           )}
@@ -455,7 +455,7 @@ export function EditConnectorDialog({
                   className="min-h-24 font-mono text-sm"
                 />
               </div>
-              <div className="p-3 bg-muted rounded text-sm text-muted-foreground">
+              <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
                 El archivo Excel está almacenado en base64 en la base de datos.
               </div>
             </>
@@ -524,7 +524,7 @@ export function EditConnectorDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             {t('Cancel')}
           </Button>
