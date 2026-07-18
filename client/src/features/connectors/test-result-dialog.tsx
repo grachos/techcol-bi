@@ -105,7 +105,7 @@ export function TestResultDialog({
                   {result.received}
                 </pre>
                 <p className='text-muted-foreground text-xs'>
-                  {t('Trimmed to one record so the structure is readable. The data path is the key holding the list of rows.')}
+                  {t('One representative record with all its columns; repeated rows are collapsed. The data path is the key holding the list of rows.')}
                 </p>
               </div>
             )}
