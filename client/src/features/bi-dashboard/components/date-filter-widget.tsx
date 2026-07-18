@@ -90,6 +90,9 @@ export function DateFilterWidget({ widget, onChange }: DateFilterWidgetProps) {
             selected={range}
             onSelect={setRange}
             numberOfMonths={1}
+            captionLayout='dropdown'
+            startMonth={new Date(2015, 0)}
+            endMonth={new Date(new Date().getFullYear() + 1, 11)}
           />
         </PopoverContent>
       </Popover>

@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   ChevronsUpDown,
   Edit3,
   Pencil,
   Plus,
+  RefreshCw,
   Save,
   Search,
   Share2,
@@ -59,6 +61,8 @@ export function DashboardToolbar({
   onToggleEditing,
 }: DashboardToolbarProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [refreshing, setRefreshing] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [tab, setTab] = useState<'favorites' | 'explore'>('favorites')
   const [search, setSearch] = useState('')
@@ -135,6 +139,20 @@ export function DashboardToolbar({
       toast.error(String(error instanceof Error ? error.message : error))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Vuelve a consultar los datos de todos los widgets bajo demanda. Es la
+  // unica forma de refrescar: ya no hay sondeo automatico, para no golpear
+  // fuentes con limite de consultas.
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      // invalidate refresca solo los widgets montados (observers activos), no
+      // las consultas viejas en cache.
+      await queryClient.invalidateQueries({ queryKey: ['connector-data'] })
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -321,6 +339,16 @@ export function DashboardToolbar({
         }}
       >
         <Plus size={16} /> {t('New dashboard')}
+      </Button>
+
+      <Button
+        variant='outline'
+        disabled={!selected || refreshing}
+        onClick={handleRefresh}
+        title={t('Fetch latest data from the sources')}
+      >
+        <RefreshCw size={16} className={cn(refreshing && 'animate-spin')} />
+        {t('Refresh data')}
       </Button>
 
       {isEditing ? (

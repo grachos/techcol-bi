@@ -16,6 +16,10 @@ export abstract class BaseConnector {
 
   // Opcional: obtener schema (tablas y columnas) de la BD
   async getSchema?(): Promise<{ tables: Array<{ name: string; columns: string[] }> }>;
+
+  // Opcional: respuesta sin recortar por 'dataPath' (solo RestAPI la usa) para
+  // que el detector de tablas pueda sugerir donde estan las filas.
+  fetchRaw?(params?: RuntimeParams): Promise<unknown>;
 }
 
 export type ConnectorType =

@@ -4,6 +4,7 @@ import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encrypt
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
 import { parseRuntimeParams } from "../utils/runtime-params";
 import { buildResponsePreview } from "../utils/response-preview";
+import { findTableCandidates } from "../utils/table-finder";
 import {
   getCachedConnectorData,
   invalidateConnectorCache,
@@ -141,15 +142,26 @@ router.post("/:id/test", async (req: Request, res: Response) => {
 
     if (!Array.isArray(data)) {
       // La fuente respondio, pero no con una lista de filas: casi siempre es
-      // un dataPath mal puesto, asi que se muestra la forma de lo que llego
-      // para poder deducir donde estan realmente las filas.
-      const { preview, format } = buildResponsePreview(data);
+      // un dataPath vacio o mal puesto. En vez de solo mostrar la forma cruda,
+      // se escanea la respuesta completa (sin recortar por dataPath) buscando
+      // arreglos de objetos utilizables y se ofrecen como candidatas -- el
+      // usuario elige la tabla con un clic, al estilo Power BI, en vez de
+      // escribir la ruta a mano.
+      const raw = instance.fetchRaw
+        ? await instance.fetchRaw(params)
+        : data;
+      const tables = findTableCandidates(raw);
+      const { preview, format } = buildResponsePreview(raw);
+
       return res.json({
         ok: false,
         error:
-          "La fuente respondio, pero no devolvio una lista de filas. Revisa 'Ruta de datos'.",
+          tables.length > 0
+            ? "La fuente devolvio una o mas tablas dentro de la respuesta. Elige cual usar."
+            : "La fuente respondio, pero no se encontro ninguna lista de filas dentro.",
         received: preview,
         receivedFormat: format,
+        tables,
         columns: [],
         rows: [],
         rowCount: 0,

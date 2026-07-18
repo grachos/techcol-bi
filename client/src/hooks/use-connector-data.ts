@@ -3,8 +3,6 @@ import { biApi } from '@/lib/bi-api'
 import { type RuntimeParams } from '@/lib/widget-filters'
 import { useShareToken } from '@/features/bi-dashboard/share-context'
 
-const REFRESH_MS = 15000
-
 export type Row = Record<string, unknown>
 
 function toRows(data: unknown): Row[] {
@@ -17,8 +15,12 @@ function toRows(data: unknown): Row[] {
 /**
  * Datos crudos de un conector, compartidos vía react-query entre todos los
  * widgets que apunten al mismo connectorId (una sola petición de red, sin
- * importar cuántos widgets la consuman) y sin parpadeo en cada refresh
- * (react-query conserva `data` mientras refetchea en segundo plano).
+ * importar cuántos widgets la consuman).
+ *
+ * NO refresca en automatico: la consulta se dispara al montar y al cambiar los
+ * filtros (pulsar "Consultar"), o cuando el usuario pulsa "Actualizar". Antes
+ * habia un sondeo cada 15s que golpeaba la fuente en bucle -- problematico con
+ * APIs lentas o con limite de consultas por dia (p.ej. Silog).
  *
  * `params` son los filtros que viajan al origen (conectores parametrizados).
  * Van en la queryKey: cambiar el rango de fechas trae datos nuevos en vez de
@@ -37,8 +39,9 @@ export function useConnectorData(
         ? biApi.dashboard.dataShared(shareToken, connectorId as number, params)
         : biApi.data(connectorId as number, params),
     enabled: connectorId != null,
-    refetchInterval: REFRESH_MS,
-    staleTime: REFRESH_MS,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   return {

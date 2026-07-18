@@ -143,7 +143,7 @@ export class RestAPIConnector extends BaseConnector {
     return token;
   }
 
-  private async request(
+  private async requestRaw(
     params: RuntimeParams,
     forceRefreshToken: boolean
   ): Promise<unknown> {
@@ -165,23 +165,40 @@ export class RestAPIConnector extends BaseConnector {
       timeout: 15_000,
     });
 
-    return this.cfg.dataPath
-      ? pickPath(response.data, this.cfg.dataPath)
-      : response.data;
+    return response.data;
   }
 
-  async fetchData(params: RuntimeParams = {}): Promise<unknown> {
+  private async withAuthRetry<T>(
+    fn: (forceRefreshToken: boolean) => Promise<T>
+  ): Promise<T> {
     try {
-      return await this.request(params, false);
+      return await fn(false);
     } catch (error) {
       // Token cacheado rechazado: reautenticar una vez y reintentar.
       const status = (error as AxiosError)?.response?.status;
       if (this.cfg.authUrl && (status === 401 || status === 403)) {
         invalidateToken(this.cfg.authUrl, this.cfg.authBody);
-        return this.request(params, true);
+        return fn(true);
       }
       throw error;
     }
+  }
+
+  async fetchData(params: RuntimeParams = {}): Promise<unknown> {
+    const raw = await this.withAuthRetry((force) =>
+      this.requestRaw(params, force)
+    );
+    return this.cfg.dataPath ? pickPath(raw, this.cfg.dataPath) : raw;
+  }
+
+  /**
+   * Respuesta cruda, sin aplicar 'dataPath'. La usa el detector de tablas
+   * (endpoint de prueba) para poder sugerir la ruta de datos aunque la
+   * configurada este vacia o mal puesta -- con dataPath aplicado y erroneo,
+   * fetchData() devolveria undefined y no habria nada que escanear.
+   */
+  async fetchRaw(params: RuntimeParams = {}): Promise<unknown> {
+    return this.withAuthRetry((force) => this.requestRaw(params, force));
   }
 
   async testConnection(): Promise<boolean> {

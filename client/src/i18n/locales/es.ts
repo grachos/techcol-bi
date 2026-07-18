@@ -645,6 +645,15 @@ export const es: Record<string, string> = {
   'No data yet.': 'Aún no hay datos.',
   'Choose a date range and press Query.':
     'Elige un rango de fechas y pulsa Consultar.',
+  'Refresh data': 'Actualizar datos',
+  'Fetch latest data from the sources':
+    'Traer los datos más recientes de las fuentes',
+  'Tables found in the response': 'Tablas encontradas en la respuesta',
+  '(root of the response)': '(raíz de la respuesta)',
+  '{{rows}} rows · {{cols}} columns': '{{rows}} filas · {{cols}} columnas',
+  'Use this table': 'Usar esta tabla',
+  'Applying…': 'Aplicando…',
+  'Data path saved': 'Ruta de datos guardada',
   'Give the widget a title and choose a connector':
     'Ponle un título al widget y elige un conector',
   'Widget updated': 'Widget actualizado',

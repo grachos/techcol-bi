@@ -236,6 +236,7 @@ export function Connectors() {
   const [editingConnector, setEditingConnector] = useState<(Connector & { config: Record<string, unknown> }) | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [testResult, setTestResult] = useState<{
+    id: number
     name: string
     result: ConnectorTestResult
   } | null>(null)
@@ -332,11 +333,29 @@ export function Connectors() {
     try {
       const result = await biApi.test(c.id)
       // El detalle (columnas y filas) va al dialogo; el toast solo confirma
-      setTestResult({ name: c.name, result })
+      setTestResult({ id: c.id, name: c.name, result })
     } catch (error) {
       toast.error(String(error instanceof Error ? error.message : error))
     } finally {
       setBusyId(null)
+    }
+  }
+
+  // Guarda la tabla elegida en el Navigator como 'dataPath' del conector y
+  // vuelve a probar para mostrar de una vez sus columnas y filas reales.
+  const handlePickTable = async (path: string) => {
+    if (!testResult) return
+    try {
+      const full = await biApi.get(testResult.id)
+      await biApi.update(testResult.id, {
+        name: full.name,
+        config: { ...full.config, dataPath: path || undefined },
+      })
+      const result = await biApi.test(testResult.id)
+      setTestResult({ id: testResult.id, name: testResult.name, result })
+      toast.success(t('Data path saved'))
+    } catch (error) {
+      toast.error(String(error instanceof Error ? error.message : error))
     }
   }
 
@@ -1009,6 +1028,7 @@ export function Connectors() {
         onOpenChange={(open) => {
           if (!open) setTestResult(null)
         }}
+        onPickTable={handlePickTable}
       />
     </>
   )

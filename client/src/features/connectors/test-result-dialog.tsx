@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Copy, XCircle } from 'lucide-react'
+import { CheckCircle2, Copy, TableIcon, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { type ConnectorTestResult } from '@/lib/bi-api'
+import { type ConnectorTestResult, type TableCandidate } from '@/lib/bi-api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,6 +26,8 @@ interface TestResultDialogProps {
   result: ConnectorTestResult | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Guarda la ruta elegida como 'dataPath' del conector y vuelve a probar. */
+  onPickTable?: (path: string) => Promise<void>
 }
 
 /** Celda: los objetos/arrays anidados se muestran como JSON compacto. */
@@ -44,13 +47,25 @@ export function TestResultDialog({
   result,
   open,
   onOpenChange,
+  onPickTable,
 }: TestResultDialogProps) {
   const { t } = useTranslation()
+  const [pickingPath, setPickingPath] = useState<string | null>(null)
   if (!result) return null
 
   const copyColumns = () => {
     navigator.clipboard.writeText(result.columns.join(', '))
     toast.success(t('Columns copied'))
+  }
+
+  const handlePick = async (table: TableCandidate) => {
+    if (!onPickTable) return
+    setPickingPath(table.path)
+    try {
+      await onPickTable(table.path)
+    } finally {
+      setPickingPath(null)
+    }
   }
 
   return (
@@ -89,6 +104,50 @@ export function TestResultDialog({
             <div className='bg-destructive/10 text-destructive rounded-md p-3 text-sm'>
               {result.error}
             </div>
+
+            {result.tables && result.tables.length > 0 && (
+              <div className='space-y-2'>
+                <p className='text-sm font-medium'>
+                  {t('Tables found in the response')}
+                </p>
+                <div className='space-y-2'>
+                  {result.tables.map((table) => (
+                    <div
+                      key={table.path || '(root)'}
+                      className='flex items-center justify-between gap-3 rounded-md border p-3'
+                    >
+                      <div className='min-w-0 space-y-1'>
+                        <div className='flex items-center gap-2'>
+                          <TableIcon className='text-muted-foreground size-4 shrink-0' />
+                          <code className='truncate text-sm font-medium'>
+                            {table.path || t('(root of the response)')}
+                          </code>
+                        </div>
+                        <p className='text-muted-foreground text-xs'>
+                          {t('{{rows}} rows · {{cols}} columns', {
+                            rows: table.rowCount,
+                            cols: table.columns.length,
+                          })}
+                          {' — '}
+                          {table.columns.slice(0, 4).join(', ')}
+                          {table.columns.length > 4 && '…'}
+                        </p>
+                      </div>
+                      <Button
+                        size='sm'
+                        disabled={!onPickTable || pickingPath !== null}
+                        onClick={() => handlePick(table)}
+                      >
+                        {pickingPath === table.path
+                          ? t('Applying…')
+                          : t('Use this table')}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {result.received && (
               <div className='space-y-2'>
                 <div className='flex items-center justify-between'>

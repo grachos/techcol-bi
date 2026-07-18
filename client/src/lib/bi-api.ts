@@ -27,6 +27,14 @@ export interface ConnectorData {
   data: unknown
 }
 
+/** Tabla candidata detectada dentro de una respuesta anidada (estilo Power BI). */
+export interface TableCandidate {
+  /** Ruta tipo "data.items" (vacío = la raíz ya es la tabla) */
+  path: string
+  rowCount: number
+  columns: string[]
+}
+
 /** Resultado de "Probar": columnas y primeras filas que expone la fuente. */
 export interface ConnectorTestResult {
   ok: boolean
@@ -34,6 +42,8 @@ export interface ConnectorTestResult {
   /** Forma de la respuesta cuando la fuente no devolvió una lista (dataPath mal puesto) */
   received?: string
   receivedFormat?: 'json' | 'xml' | 'text'
+  /** Tablas detectadas dentro de la respuesta cuando la ruta configurada no da filas */
+  tables?: TableCandidate[]
   columns: string[]
   rows: Record<string, unknown>[]
   rowCount: number
