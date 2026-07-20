@@ -1,7 +1,11 @@
 import dns from "dns/promises";
 import net from "net";
 
-const MAX_ROWS = 1000;
+// 1000 se quedaba corto para rangos de fecha reales: una fuente con buen
+// volumen diario (ej. Silog) puede superar 1000 filas en solo un mes, y el
+// corte silencioso dejaba fuera el resto del rango (ej. julio desaparecia
+// de un filtro 1/jun-19/jul porque junio solo ya llenaba las 1000 filas).
+const MAX_ROWS = 10000;
 
 /**
  * Trunca la respuesta de un conector a MAX_ROWS filas. Protege memoria y

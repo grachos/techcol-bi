@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { type DateRange } from 'react-day-picker'
 import { CalendarIcon, Search, X } from 'lucide-react'
 import { type Widget } from '@/lib/dashboard-api'
-import { toLocalDay, type ActiveFilterValue } from '@/lib/widget-filters'
+import { toLocalDay, type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -14,7 +14,20 @@ import {
 
 interface DateFilterWidgetProps {
   widget: Widget
+  activeFilters?: ActiveFilters
   onChange: (column: string, value: ActiveFilterValue | null) => void
+}
+
+function initialRangeFrom(
+  activeFilters: ActiveFilters | undefined,
+  column: string | null
+): DateRange | undefined {
+  const value = column ? activeFilters?.[column] : undefined
+  if (!value || value.type !== 'date_range') return undefined
+  return {
+    from: value.from ? new Date(`${value.from}T00:00:00`) : undefined,
+    to: value.to ? new Date(`${value.to}T00:00:00`) : undefined,
+  }
 }
 
 /**
@@ -23,13 +36,13 @@ interface DateFilterWidgetProps {
  * consulta con el rango a medias (solo `from`), y en conectores que filtran
  * en el origen eso significa una llamada de mas a la API externa.
  */
-export function DateFilterWidget({ widget, onChange }: DateFilterWidgetProps) {
+export function DateFilterWidget({ widget, activeFilters, onChange }: DateFilterWidgetProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language === 'es' ? 'es-CO' : 'en-US'
-  const [range, setRange] = useState<DateRange | undefined>()
-  const [applied, setApplied] = useState<DateRange | undefined>()
-
   const column = widget.filterColumn
+  const restored = initialRangeFrom(activeFilters, column)
+  const [range, setRange] = useState<DateRange | undefined>(restored)
+  const [applied, setApplied] = useState<DateRange | undefined>(restored)
 
   const handleApply = () => {
     if (!column) return

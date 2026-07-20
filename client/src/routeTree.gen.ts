@@ -13,6 +13,8 @@ import { Route as ClerkRouteRouteImport } from './routes/clerk/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as ShareTokenRouteImport } from './routes/share.$token'
+import { Route as AuthenticatedTreeGridDemoRouteImport } from './routes/_authenticated/tree-grid-demo'
+import { Route as AuthenticatedSemanticLayerDemoRouteImport } from './routes/_authenticated/semantic-layer-demo'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -30,6 +32,7 @@ import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
+import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedConnectorsIndexRouteImport } from './routes/_authenticated/connectors/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedBiIndexRouteImport } from './routes/_authenticated/bi/index'
@@ -42,6 +45,7 @@ import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedDashboardDashboardIdRouteImport } from './routes/_authenticated/dashboard/$dashboardId'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
   id: '/clerk',
@@ -62,6 +66,18 @@ const ShareTokenRoute = ShareTokenRouteImport.update({
   path: '/share/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTreeGridDemoRoute =
+  AuthenticatedTreeGridDemoRouteImport.update({
+    id: '/tree-grid-demo',
+    path: '/tree-grid-demo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSemanticLayerDemoRoute =
+  AuthenticatedSemanticLayerDemoRouteImport.update({
+    id: '/semantic-layer-demo',
+    path: '/semantic-layer-demo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const errors503Route = errors503RouteImport.update({
   id: '/(errors)/503',
   path: '/503',
@@ -148,6 +164,12 @@ const AuthenticatedHelpCenterIndexRoute =
     path: '/help-center/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardIndexRoute =
+  AuthenticatedDashboardIndexRouteImport.update({
+    id: '/dashboard/',
+    path: '/dashboard/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConnectorsIndexRoute =
   AuthenticatedConnectorsIndexRouteImport.update({
     id: '/connectors/',
@@ -215,6 +237,12 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardDashboardIdRoute =
+  AuthenticatedDashboardDashboardIdRouteImport.update({
+    id: '/dashboard/$dashboardId',
+    path: '/dashboard/$dashboardId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -230,7 +258,10 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/semantic-layer-demo': typeof AuthenticatedSemanticLayerDemoRoute
+  '/tree-grid-demo': typeof AuthenticatedTreeGridDemoRoute
   '/share/$token': typeof ShareTokenRoute
+  '/dashboard/$dashboardId': typeof AuthenticatedDashboardDashboardIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -243,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/bi/': typeof AuthenticatedBiIndexRoute
   '/chats/': typeof AuthenticatedChatsIndexRoute
   '/connectors/': typeof AuthenticatedConnectorsIndexRoute
+  '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
@@ -260,8 +292,11 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/semantic-layer-demo': typeof AuthenticatedSemanticLayerDemoRoute
+  '/tree-grid-demo': typeof AuthenticatedTreeGridDemoRoute
   '/share/$token': typeof ShareTokenRoute
   '/': typeof AuthenticatedIndexRoute
+  '/dashboard/$dashboardId': typeof AuthenticatedDashboardDashboardIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -274,6 +309,7 @@ export interface FileRoutesByTo {
   '/bi': typeof AuthenticatedBiIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/connectors': typeof AuthenticatedConnectorsIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
@@ -296,8 +332,11 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_authenticated/semantic-layer-demo': typeof AuthenticatedSemanticLayerDemoRoute
+  '/_authenticated/tree-grid-demo': typeof AuthenticatedTreeGridDemoRoute
   '/share/$token': typeof ShareTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/dashboard/$dashboardId': typeof AuthenticatedDashboardDashboardIdRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
@@ -310,6 +349,7 @@ export interface FileRoutesById {
   '/_authenticated/bi/': typeof AuthenticatedBiIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
   '/_authenticated/connectors/': typeof AuthenticatedConnectorsIndexRoute
+  '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
@@ -331,7 +371,10 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/semantic-layer-demo'
+    | '/tree-grid-demo'
     | '/share/$token'
+    | '/dashboard/$dashboardId'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
@@ -344,6 +387,7 @@ export interface FileRouteTypes {
     | '/bi/'
     | '/chats/'
     | '/connectors/'
+    | '/dashboard/'
     | '/help-center/'
     | '/settings/'
     | '/tasks/'
@@ -361,8 +405,11 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/semantic-layer-demo'
+    | '/tree-grid-demo'
     | '/share/$token'
     | '/'
+    | '/dashboard/$dashboardId'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
@@ -375,6 +422,7 @@ export interface FileRouteTypes {
     | '/bi'
     | '/chats'
     | '/connectors'
+    | '/dashboard'
     | '/help-center'
     | '/settings'
     | '/tasks'
@@ -396,8 +444,11 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_authenticated/semantic-layer-demo'
+    | '/_authenticated/tree-grid-demo'
     | '/share/$token'
     | '/_authenticated/'
+    | '/_authenticated/dashboard/$dashboardId'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
@@ -410,6 +461,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bi/'
     | '/_authenticated/chats/'
     | '/_authenticated/connectors/'
+    | '/_authenticated/dashboard/'
     | '/_authenticated/help-center/'
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
@@ -461,6 +513,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/share/$token'
       preLoaderRoute: typeof ShareTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tree-grid-demo': {
+      id: '/_authenticated/tree-grid-demo'
+      path: '/tree-grid-demo'
+      fullPath: '/tree-grid-demo'
+      preLoaderRoute: typeof AuthenticatedTreeGridDemoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/semantic-layer-demo': {
+      id: '/_authenticated/semantic-layer-demo'
+      path: '/semantic-layer-demo'
+      fullPath: '/semantic-layer-demo'
+      preLoaderRoute: typeof AuthenticatedSemanticLayerDemoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(errors)/503': {
       id: '/(errors)/503'
@@ -581,6 +647,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard/': {
+      id: '/_authenticated/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connectors/': {
       id: '/_authenticated/connectors/'
       path: '/connectors'
@@ -665,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dashboard/$dashboardId': {
+      id: '/_authenticated/dashboard/$dashboardId'
+      path: '/dashboard/$dashboardId'
+      fullPath: '/dashboard/$dashboardId'
+      preLoaderRoute: typeof AuthenticatedDashboardDashboardIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -693,12 +773,16 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedSemanticLayerDemoRoute: typeof AuthenticatedSemanticLayerDemoRoute
+  AuthenticatedTreeGridDemoRoute: typeof AuthenticatedTreeGridDemoRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedDashboardDashboardIdRoute: typeof AuthenticatedDashboardDashboardIdRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedBiIndexRoute: typeof AuthenticatedBiIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedConnectorsIndexRoute: typeof AuthenticatedConnectorsIndexRoute
+  AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
@@ -706,12 +790,17 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedSemanticLayerDemoRoute: AuthenticatedSemanticLayerDemoRoute,
+  AuthenticatedTreeGridDemoRoute: AuthenticatedTreeGridDemoRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedDashboardDashboardIdRoute:
+    AuthenticatedDashboardDashboardIdRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedBiIndexRoute: AuthenticatedBiIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedConnectorsIndexRoute: AuthenticatedConnectorsIndexRoute,
+  AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   ChevronsUpDown,
   Edit3,
+  FunctionSquare,
   Pencil,
   Plus,
   RefreshCw,
@@ -42,6 +43,8 @@ interface DashboardToolbarProps {
   onAddWidget: () => void
   isEditing: boolean
   onToggleEditing: (editing: boolean) => void
+  onOpenMetrics: () => void
+  metricsAvailable: boolean
 }
 
 function parseTagsInput(raw: string): string[] {
@@ -59,6 +62,8 @@ export function DashboardToolbar({
   onAddWidget,
   isEditing,
   onToggleEditing,
+  onOpenMetrics,
+  metricsAvailable,
 }: DashboardToolbarProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -371,6 +376,15 @@ export function DashboardToolbar({
 
       <Button onClick={onAddWidget} disabled={!selected || !isEditing}>
         <Plus size={16} /> {t('Add widget')}
+      </Button>
+
+      <Button
+        variant='outline'
+        disabled={!selected || !metricsAvailable}
+        onClick={onOpenMetrics}
+        title={t('Define calculated metrics (e.g. profitability) from this dashboard\'s live data')}
+      >
+        <FunctionSquare size={16} /> {t('Metrics')}
       </Button>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

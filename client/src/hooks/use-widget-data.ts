@@ -5,6 +5,7 @@ import {
   filtersToParams,
   type ActiveFilters,
 } from '@/lib/widget-filters'
+import { augmentRowsWithScalarMeasures } from '@/lib/semantic-layer'
 import { useConnectorData, type Row } from './use-connector-data'
 
 /**
@@ -24,7 +25,15 @@ export function useWidgetData(widget: Widget, activeFilters: ActiveFilters) {
     [widget.connectorType, activeFilters]
   )
 
-  const { rows, error, isLoading } = useConnectorData(widget.connectorId, params)
+  const { rows: rawRows, error, isLoading } = useConnectorData(widget.connectorId, params)
+
+  // Agrega columnas virtuales para metricas calculadas escalares (ej. "ruta"
+  // = CONCAT(origen, destino)), asi agrupar/filtrar por su nombre funciona
+  // igual que con una columna real de la fuente.
+  const rows = useMemo(
+    () => augmentRowsWithScalarMeasures(widget.connectorId, rawRows),
+    [widget.connectorId, rawRows]
+  )
 
   const filteredRows = useMemo(
     () => applyFilters(rows, activeFilters),

@@ -46,9 +46,17 @@ import { MapWidget } from './map-widget'
 import { ProgressWidget } from './progress-widget'
 import { SelectFilterWidget } from './select-filter-widget'
 import { StatWidget } from './stat-widget'
+import { TreeGridWidget } from './tree-grid-widget'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 const MAX_TABLE_ROWS = 100
+// Recharts pinta un nodo SVG por punto (una <rect>/<circle> por barra,
+// punto de linea o porcion de torta): miles de puntos crudos son ilegibles
+// visualmente ademas de lentos de pintar/repintar. Si la fuente no viene ya
+// agrupada (ej. "chart" sobre filas crudas en vez de una metrica agregada),
+// se recorta a las primeras MAX_CHART_POINTS y se avisa en vez de graficar
+// todo el dataset.
+const MAX_CHART_POINTS = 500
 const PIE_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -160,12 +168,15 @@ export function WidgetCard({
         {widget.kind === 'map' && (
           <MapWidget widget={widget} activeFilters={activeFilters} />
         )}
+        {widget.kind === 'tree_grid' && (
+          <TreeGridWidget widget={widget} activeFilters={activeFilters} />
+        )}
         {widget.kind === 'calendar' && (
           <CalendarWidget widget={widget} activeFilters={activeFilters} />
         )}
         {widget.kind === 'clock' && <ClockWidget />}
         {widget.kind === 'filter_date' && (
-          <DateFilterWidget widget={widget} onChange={onFilterChange} />
+          <DateFilterWidget widget={widget} activeFilters={activeFilters} onChange={onFilterChange} />
         )}
         {widget.kind === 'filter_select' && (
           <SelectFilterWidget
@@ -200,12 +211,13 @@ function ChartWidgetBody({
   )
   const chartData = useMemo(
     () =>
-      filteredRows.map((r) => ({
+      filteredRows.slice(0, MAX_CHART_POINTS).map((r) => ({
         ...r,
         [yKey]: Number(r[yKey]),
       })),
     [filteredRows, yKey]
   )
+  const chartTruncated = filteredRows.length > MAX_CHART_POINTS
 
   if (isLoading) return <WidgetLoading />
   if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
@@ -222,9 +234,21 @@ function ChartWidgetBody({
   const compact = widget.layout.h <= 3
 
   return (
-    <ResponsiveContainer width='100%' height='100%'>
-      {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t, compact)}
-    </ResponsiveContainer>
+    <div className='flex h-full flex-col gap-1'>
+      {chartTruncated && widget.chartType !== 'table' && !compact && (
+        <p className='text-muted-foreground shrink-0 text-[10px]'>
+          {t('Showing first {{shown}} of {{total}} points', {
+            shown: MAX_CHART_POINTS,
+            total: filteredRows.length,
+          })}
+        </p>
+      )}
+      <div className='min-h-0 flex-1'>
+        <ResponsiveContainer width='100%' height='100%'>
+          {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t, compact)}
+        </ResponsiveContainer>
+      </div>
+    </div>
   )
 }
 

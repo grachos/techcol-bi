@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
@@ -17,11 +17,19 @@ import {
   type Widget,
 } from '@/lib/dashboard-api'
 import { type WidgetEditSuggestion, type WidgetSuggestion } from '@/lib/ai-api'
-import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
+import {
+  type ActiveFilterValue,
+  type ActiveFilters,
+  filtersToParams,
+} from '@/lib/widget-filters'
 import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
+import { getConnectorSemanticModel } from '@/lib/semantic-layer'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useConnectorData } from '@/hooks/use-connector-data'
+import { useDashboardPersistence } from '@/hooks/use-dashboard-persistence'
 import { Card, CardContent } from '@/components/ui/card'
 import { ConfigDrawer } from '@/components/config-drawer'
+import { WidgetErrorBoundary } from '@/components/widget-error-boundary'
 import { LanguageSwitch } from '@/components/language-switch'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -30,6 +38,7 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { AiEditWidgetDialog } from './components/ai-edit-widget-dialog'
 import { AiWidgetPrompt } from './components/ai-widget-prompt'
+import { DashboardMetricsSheet } from './components/dashboard-metrics-sheet'
 import { DashboardToolbar } from './components/dashboard-toolbar'
 import { WidgetCard } from './components/widget-card'
 import { WidgetDialog } from './components/widget-dialog'
@@ -54,6 +63,28 @@ export function BiDashboard() {
   const [loading, setLoading] = useState(false)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
   const [isEditing, setIsEditing] = useState(false)
+  const [metricsOpen, setMetricsOpen] = useState(false)
+
+  // Widget de referencia para el panel de Metricas: el primer widget con
+  // conector propio en el dashboard actual (prioriza tree_grid, ya que sus
+  // columnas de valor son las que consumen medidas del modelo semantico).
+  const metricsWidget =
+    widgets.find((w) => w.kind === 'tree_grid' && w.connectorId != null) ??
+    widgets.find((w) => w.connectorId != null)
+  const metricsParams = useMemo(
+    () =>
+      metricsWidget?.connectorType === 'rest_api' ? filtersToParams(activeFilters) : {},
+    [metricsWidget, activeFilters]
+  )
+  const { rows: metricsRows, isLoading: metricsLoading } = useConnectorData(
+    metricsWidget?.connectorId,
+    metricsParams
+  )
+  const metricsModel = metricsWidget?.connectorId
+    ? getConnectorSemanticModel(metricsWidget.connectorId, metricsRows)
+    : null
+  const metricsConnectorName =
+    connectors.find((c) => c.id === metricsWidget?.connectorId)?.name ?? null
 
   const handleFilterChange = (
     column: string,
@@ -68,16 +99,20 @@ export function BiDashboard() {
     })
   }
 
+  // Persistir el estado actual
+  useDashboardPersistence(selectedId, activeFilters)
+
   const loadDashboards = useCallback(
     async (keepSelection = true) => {
       try {
         const list = await dashboardApi.list()
         setDashboards(list)
-        if (!keepSelection || (!selectedId && list.length > 0)) {
-          setSelectedId(list[0]?.id ?? null)
-        } else if (selectedId && !list.some((d) => d.id === selectedId)) {
-          setSelectedId(list[0]?.id ?? null)
-        }
+
+        const targetId = !keepSelection
+          ? list[0]?.id ?? null
+          : (selectedId ?? list[0]?.id) ?? null
+
+        setSelectedId(targetId)
       } catch (error) {
         toast.error(String(error instanceof Error ? error.message : error))
       }
@@ -94,12 +129,16 @@ export function BiDashboard() {
   const loadWidgets = useCallback(async () => {
     if (!selectedId) {
       setWidgets([])
+      setActiveFilters({})
       return
     }
     setLoading(true)
     try {
       const detail = await dashboardApi.get(selectedId)
       setWidgets(detail.widgets)
+      // Restaura la ultima consulta (filtros) guardada en el servidor para
+      // este dashboard, en vez de arrancar siempre en blanco.
+      setActiveFilters(detail.lastFilters ?? {})
     } catch (error) {
       toast.error(String(error instanceof Error ? error.message : error))
     } finally {
@@ -108,7 +147,6 @@ export function BiDashboard() {
   }, [selectedId])
 
   useEffect(() => {
-    setActiveFilters({})
     loadWidgets()
   }, [loadWidgets])
 
@@ -207,6 +245,8 @@ export function BiDashboard() {
           }}
           isEditing={isEditing}
           onToggleEditing={setIsEditing}
+          onOpenMetrics={() => setMetricsOpen(true)}
+          metricsAvailable={!!metricsWidget}
         />
 
         {connectors.length > 0 && selectedId && (
@@ -257,20 +297,22 @@ export function BiDashboard() {
           >
             {widgets.map((widget) => (
               <div key={widget.id}>
-                <WidgetCard
-                  widget={widget}
-                  activeFilters={activeFilters}
-                  onFilterChange={handleFilterChange}
-                  onEdit={() => {
-                    setEditingWidget(widget)
-                    setAiSuggestion(undefined)
-                    setAiEditSuggestion(undefined)
-                    setDialogOpen(true)
-                  }}
-                  onAiEdit={() => setAiEditDialogWidget(widget)}
-                  onDelete={() => handleDeleteWidget(widget)}
-                  isEditing={isEditing}
-                />
+                <WidgetErrorBoundary>
+                  <WidgetCard
+                    widget={widget}
+                    activeFilters={activeFilters}
+                    onFilterChange={handleFilterChange}
+                    onEdit={() => {
+                      setEditingWidget(widget)
+                      setAiSuggestion(undefined)
+                      setAiEditSuggestion(undefined)
+                      setDialogOpen(true)
+                    }}
+                    onAiEdit={() => setAiEditDialogWidget(widget)}
+                    onDelete={() => handleDeleteWidget(widget)}
+                    isEditing={isEditing}
+                  />
+                </WidgetErrorBoundary>
               </div>
             ))}
           </GridLayoutWithWidth>
@@ -307,6 +349,15 @@ export function BiDashboard() {
           }}
         />
       )}
+
+      <DashboardMetricsSheet
+        open={metricsOpen}
+        onOpenChange={setMetricsOpen}
+        connectorName={metricsConnectorName}
+        model={metricsModel}
+        rows={metricsRows}
+        loading={metricsLoading}
+      />
     </>
   )
 }

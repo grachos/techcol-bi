@@ -4,6 +4,9 @@ import {
   Users,
   HelpCircle,
   Command,
+  Layers,
+  Table2,
+  LayoutGrid,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -33,6 +36,26 @@ export const sidebarData: SidebarData = {
           title: 'Connectors',
           url: '/connectors',
           icon: Cable,
+        },
+        {
+          title: 'Dashboards',
+          url: '/dashboard',
+          icon: LayoutGrid,
+        },
+      ],
+    },
+    {
+      title: 'Labs',
+      items: [
+        {
+          title: 'Semantic Layer',
+          url: '/semantic-layer-demo',
+          icon: Layers,
+        },
+        {
+          title: 'TreeGrid',
+          url: '/tree-grid-demo',
+          icon: Table2,
         },
       ],
     },

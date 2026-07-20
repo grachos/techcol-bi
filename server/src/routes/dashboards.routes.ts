@@ -24,6 +24,7 @@ const WIDGET_KINDS = [
   "progress",
   "map",
   "combo",
+  "tree_grid",
 ] as const;
 type WidgetKind = (typeof WIDGET_KINDS)[number];
 
@@ -50,6 +51,7 @@ const KINDS_REQUIRING_CONNECTOR: WidgetKind[] = [
   "progress",
   "map",
   "combo",
+  "tree_grid",
 ];
 
 interface WidgetLayout {
@@ -72,11 +74,18 @@ interface WidgetRow {
   x_key: string | null;
   y_key: string | null;
   aggregation: Aggregation | null;
+  target_value: string | number | null;
+  target_label: string | null;
   filter_column: string | null;
   layout: string | WidgetLayout;
 }
 
 function parseLayout(raw: string | WidgetLayout): WidgetLayout {
+  return typeof raw === "string" ? JSON.parse(raw) : raw;
+}
+
+function parseFilters(raw: string | Record<string, unknown> | null): Record<string, unknown> {
+  if (!raw) return {};
   return typeof raw === "string" ? JSON.parse(raw) : raw;
 }
 
@@ -127,7 +136,7 @@ router.get("/share/:token", async (req: Request, res: Response) => {
     const dashboardId = shareRows[0].dashboard_id;
 
     const [dashRows]: any = await pool.query(
-      "SELECT id, name, created_at FROM dashboards WHERE id = ?",
+      "SELECT id, name, created_at, last_filters FROM dashboards WHERE id = ?",
       [dashboardId]
     );
 
@@ -139,12 +148,13 @@ router.get("/share/:token", async (req: Request, res: Response) => {
       id: dashRows[0].id,
       name: dashRows[0].name,
       created_at: dashRows[0].created_at,
+      lastFilters: parseFilters(dashRows[0].last_filters),
       isShared: true,
     };
 
     const [widgetRows]: any = await pool.query(
       `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
-              w.x_key, w.y_key, w.aggregation, w.filter_column, w.layout,
+              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.layout,
               c.name AS connector_name, c.type AS connector_type
        FROM dashboard_widgets w
        LEFT JOIN connectors c ON c.id = w.connector_id
@@ -165,6 +175,8 @@ router.get("/share/:token", async (req: Request, res: Response) => {
       xKey: w.x_key,
       yKey: w.y_key,
       aggregation: w.aggregation,
+      targetValue: w.target_value === null ? null : Number(w.target_value),
+      targetLabel: w.target_label,
       filterColumn: w.filter_column,
       layout: parseLayout(w.layout),
     }));
@@ -225,7 +237,7 @@ router.use(requireAuth);
 router.get("/", async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
-      "SELECT id, name, is_favorite, tags, created_at FROM dashboards WHERE user_id = ? ORDER BY created_at ASC",
+      "SELECT id, name, is_favorite, tags, created_at, last_queried_at FROM dashboards WHERE user_id = ? ORDER BY created_at ASC",
       [req.userId]
     );
     res.json(
@@ -235,6 +247,7 @@ router.get("/", async (req: Request, res: Response) => {
         isFavorite: !!r.is_favorite,
         tags: parseTags(r.tags),
         created_at: r.created_at,
+        lastQueriedAt: r.last_queried_at,
       }))
     );
   } catch (error: any) {
@@ -263,7 +276,7 @@ router.post("/", async (req: Request, res: Response) => {
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const [dashRows]: any = await pool.query(
-      "SELECT id, name, is_favorite, tags, created_at FROM dashboards WHERE id = ? AND user_id = ?",
+      "SELECT id, name, is_favorite, tags, created_at, last_filters, last_queried_at FROM dashboards WHERE id = ? AND user_id = ?",
       [req.params.id, req.userId]
     );
     if (dashRows.length === 0) {
@@ -275,11 +288,13 @@ router.get("/:id", async (req: Request, res: Response) => {
       isFavorite: !!dashRows[0].is_favorite,
       tags: parseTags(dashRows[0].tags),
       created_at: dashRows[0].created_at,
+      lastFilters: parseFilters(dashRows[0].last_filters),
+      lastQueriedAt: dashRows[0].last_queried_at,
     };
 
     const [widgetRows]: any = await pool.query(
       `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
-              w.x_key, w.y_key, w.aggregation, w.filter_column, w.layout,
+              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.layout,
               c.name AS connector_name, c.type AS connector_type
        FROM dashboard_widgets w
        LEFT JOIN connectors c ON c.id = w.connector_id
@@ -300,6 +315,8 @@ router.get("/:id", async (req: Request, res: Response) => {
       xKey: w.x_key,
       yKey: w.y_key,
       aggregation: w.aggregation,
+      targetValue: w.target_value === null ? null : Number(w.target_value),
+      targetLabel: w.target_label,
       filterColumn: w.filter_column,
       layout: parseLayout(w.layout),
     }));
@@ -350,6 +367,25 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Guardar la ultima consulta (filtros activos) aplicada en el dashboard.
+// Se usa para que /dashboard, /dashboard/:id y el link compartido siempre
+// muestren la misma ultima consulta, sin depender de localStorage.
+router.put("/:id/last-query", async (req: Request, res: Response) => {
+  const { filters } = req.body ?? {};
+  try {
+    const [result]: any = await pool.query(
+      "UPDATE dashboards SET last_filters = ?, last_queried_at = NOW() WHERE id = ? AND user_id = ?",
+      [JSON.stringify(filters ?? {}), req.params.id, req.userId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
+    res.json({ saved: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Eliminar dashboard
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
@@ -377,6 +413,8 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
     xKey,
     yKey,
     aggregation,
+    targetValue,
+    targetLabel,
     filterColumn,
     layout,
   } = req.body ?? {};
@@ -419,8 +457,8 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
 
     const [result]: any = await pool.query(
       `INSERT INTO dashboard_widgets
-        (dashboard_id, connector_id, kind, title, chart_type, color, x_key, y_key, aggregation, filter_column, layout)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (dashboard_id, connector_id, kind, title, chart_type, color, x_key, y_key, aggregation, target_value, target_label, filter_column, layout)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.params.id,
         connectorId ?? null,
@@ -431,6 +469,8 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
         xKey ?? null,
         yKey ?? null,
         aggregation ?? null,
+        targetValue ?? null,
+        targetLabel ?? null,
         filterColumn ?? null,
         JSON.stringify(layout),
       ]
@@ -450,6 +490,8 @@ router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
     xKey,
     yKey,
     aggregation,
+    targetValue,
+    targetLabel,
     filterColumn,
     layout,
   } = req.body ?? {};
@@ -500,6 +542,14 @@ router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
     if (aggregation !== undefined) {
       fields.push("aggregation = ?");
       values.push(aggregation);
+    }
+    if (targetValue !== undefined) {
+      fields.push("target_value = ?");
+      values.push(targetValue);
+    }
+    if (targetLabel !== undefined) {
+      fields.push("target_label = ?");
+      values.push(targetLabel);
     }
     if (filterColumn !== undefined) {
       fields.push("filter_column = ?");

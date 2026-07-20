@@ -87,13 +87,21 @@ ALTER TABLE dashboards
 ALTER TABLE dashboards
   ADD INDEX IF NOT EXISTS idx_dashboards_user_fav (user_id, is_favorite);
 
+-- Ultima consulta (filtros) aplicada en el dashboard: persiste en servidor para
+-- que cualquier punto de entrada (link compartido, /dashboard, /bi) muestre lo
+-- mismo, sin depender del localStorage de un navegador en particular.
+ALTER TABLE dashboards
+  ADD COLUMN IF NOT EXISTS last_filters JSON NULL AFTER tags;
+ALTER TABLE dashboards
+  ADD COLUMN IF NOT EXISTS last_queried_at TIMESTAMP NULL AFTER last_filters;
+
 -- Widgets dentro de un dashboard: graficas/tablas, informativos (KPI, calendario, reloj)
 -- y filtros interactivos (fecha, seleccion) que afectan a otros widgets del mismo dashboard.
 CREATE TABLE IF NOT EXISTS dashboard_widgets (
   id INT PRIMARY KEY AUTO_INCREMENT,
   dashboard_id INT NOT NULL,
   connector_id INT NULL, -- opcional: 'clock' y 'calendar' standalone no necesitan conector
-  kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo')
+  kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo', 'tree_grid')
     NOT NULL DEFAULT 'chart',
   title VARCHAR(255) NOT NULL,
   chart_type ENUM('bar', 'line', 'area', 'pie', 'table') NOT NULL DEFAULT 'bar', -- solo kind='chart'
@@ -113,7 +121,7 @@ CREATE TABLE IF NOT EXISTS dashboard_widgets (
 -- Migracion idempotente para bases ya creadas antes de agregar kind/aggregation/filter_column
 ALTER TABLE dashboard_widgets MODIFY COLUMN connector_id INT NULL;
 ALTER TABLE dashboard_widgets
-  ADD COLUMN IF NOT EXISTS kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo')
+  ADD COLUMN IF NOT EXISTS kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo', 'tree_grid')
     NOT NULL DEFAULT 'chart' AFTER connector_id;
 ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS aggregation ENUM('sum', 'avg', 'count', 'min', 'max') NULL AFTER y_key;
@@ -121,12 +129,19 @@ ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS filter_column VARCHAR(255) NULL AFTER aggregation;
 -- Ampliar kind para bases que ya tenian la columna con menos valores
 ALTER TABLE dashboard_widgets
-  MODIFY COLUMN kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo')
+  MODIFY COLUMN kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo', 'tree_grid')
     NOT NULL DEFAULT 'chart';
 -- Color por widget (Fase 1: tarjetas y graficas coloreadas estilo dashboard admin)
 ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS color ENUM('primary', 'pink', 'blue', 'green', 'orange', 'purple', 'teal')
     NOT NULL DEFAULT 'primary' AFTER chart_type;
+
+-- Meta/objetivo opcional para kind='stat': dibuja una linea de referencia
+-- sobre el valor agregado (ej. "Meta Terceros" en 15% para un KPI de Rentabilidad).
+ALTER TABLE dashboard_widgets
+  ADD COLUMN IF NOT EXISTS target_value DECIMAL(20,6) NULL AFTER aggregation;
+ALTER TABLE dashboard_widgets
+  ADD COLUMN IF NOT EXISTS target_label VARCHAR(255) NULL AFTER target_value;
 
 -- Links compartibles de dashboards (vista publica de solo lectura)
 CREATE TABLE IF NOT EXISTS dashboard_shares (

@@ -3,6 +3,7 @@
  */
 import { apiFetch } from './api-fetch'
 import type { ConnectorType } from './bi-api'
+import type { ActiveFilters } from './widget-filters'
 
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'table'
 
@@ -18,6 +19,7 @@ export type WidgetKind =
   | 'progress'
   | 'map'
   | 'combo'
+  | 'tree_grid'
 
 export const WIDGET_KINDS: WidgetKind[] = [
   'chart',
@@ -25,6 +27,7 @@ export const WIDGET_KINDS: WidgetKind[] = [
   'combo',
   'progress',
   'map',
+  'tree_grid',
   'calendar',
   'clock',
   'filter_date',
@@ -39,6 +42,7 @@ export const KINDS_REQUIRING_CONNECTOR: WidgetKind[] = [
   'progress',
   'map',
   'combo',
+  'tree_grid',
 ]
 
 export type Aggregation = 'sum' | 'avg' | 'count' | 'min' | 'max'
@@ -88,6 +92,7 @@ export interface DashboardSummary {
   isFavorite: boolean
   tags: string[]
   created_at: string
+  lastQueriedAt: string | null
 }
 
 export interface WidgetLayout {
@@ -109,12 +114,15 @@ export interface Widget {
   xKey: string | null
   yKey: string | null
   aggregation: Aggregation | null
+  targetValue: number | null
+  targetLabel: string | null
   filterColumn: string | null
   layout: WidgetLayout
 }
 
 export interface DashboardDetail extends DashboardSummary {
   widgets: Widget[]
+  lastFilters: ActiveFilters
 }
 
 async function handle<T>(res: Response): Promise<T> {
@@ -134,6 +142,8 @@ export interface WidgetPayload {
   xKey?: string | null
   yKey?: string | null
   aggregation?: Aggregation | null
+  targetValue?: number | null
+  targetLabel?: string | null
   filterColumn?: string | null
   layout: WidgetLayout
 }
@@ -167,6 +177,13 @@ export const dashboardApi = {
       handle(r)
     ),
 
+  saveLastQuery: (id: number, filters: ActiveFilters): Promise<{ saved: boolean }> =>
+    apiFetch(`/api/dashboards/${id}/last-query`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filters }),
+    }).then((r) => handle(r)),
+
   addWidget: (
     dashboardId: number,
     payload: WidgetPayload
@@ -187,6 +204,8 @@ export const dashboardApi = {
       xKey: string | null
       yKey: string | null
       aggregation: Aggregation | null
+      targetValue: number | null
+      targetLabel: string | null
       filterColumn: string | null
       layout: WidgetLayout
     }>

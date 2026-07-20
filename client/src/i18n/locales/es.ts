@@ -8,6 +8,7 @@ export const es: Record<string, string> = {
   'Business Intelligence': 'Business Intelligence',
   'BI Dashboard': 'Panel BI',
   Connectors: 'Conectores',
+  Dashboards: 'Dashboards',
   General: 'General',
   Dashboard: 'Dashboard',
   Tasks: 'Tareas',
@@ -662,6 +663,20 @@ export const es: Record<string, string> = {
   'Add widget': 'Agregar widget',
   'Edit layout': 'Editar diseño',
   'Save layout': 'Guardar diseño',
+  Metrics: 'Métricas',
+  'Define calculated metrics (e.g. profitability) from this dashboard\'s live data':
+    'Define métricas calculadas (ej. rentabilidad) a partir de los datos en vivo de este tablero',
+  'Calculated metrics': 'Métricas calculadas',
+  'Metrics defined here are computed from live "{{name}}" data and become available to this dashboard\'s tree table widgets right away.':
+    'Las métricas definidas aquí se calculan con los datos en vivo de "{{name}}" y quedan disponibles de inmediato en las tablas dinámicas de este tablero.',
+  'Add a widget with a connector first to define metrics for it.':
+    'Agrega primero un widget con conector para poder definir métricas.',
+  'Loading connector data…': 'Cargando datos del conector…',
+  'No data available yet from this connector.':
+    'Aún no hay datos disponibles de este conector.',
+  'How filters work': 'Cómo funcionan los filtros',
+  'Filters are configured with separate "Date Range" and "Selection" widgets on the dashboard. Once added, filters automatically apply to this table based on matching column names.':
+    'Los filtros se configuran con widgets separados de "Rango de fecha" y "Selección" en el tablero. Una vez añadidos, los filtros se aplican automáticamente a esta tabla basándose en nombres de columna coincidentes.',
   'Sales by month': 'Ventas por mes',
   Connector: 'Conector',
   'Chart type': 'Tipo de gráfica',
@@ -711,12 +726,32 @@ export const es: Record<string, string> = {
   Count: 'Conteo',
   Minimum: 'Mínimo',
   Maximum: 'Máximo',
+  'Defined by the metric formula': 'Definida por la fórmula de la métrica',
+  'None (single value)': 'Ninguna (valor único)',
+  'e.g. mes': 'ej. mes',
+  'Shows one point per value of this column (e.g. month) instead of a single total.':
+    'Muestra un punto por cada valor de esta columna (ej. mes) en vez de un solo total.',
+  'Grain column': 'Columna de grano',
+  '(optional, required for leaf-level metrics)':
+    '(opcional, requerida para métricas de nivel hoja)',
+  'e.g. manifiesto': 'ej. manifiesto',
+  'Some formulas (e.g. mixing MIN/MAX with SUM) must be evaluated per unit before totaling. Pick the column that identifies that unit (e.g. an id column) if the total looks wrong.':
+    'Algunas fórmulas (ej. mezclar MIN/MAX con SUM) deben evaluarse por unidad antes de totalizar. Elige la columna que identifica esa unidad (ej. una columna de id) si el total se ve incorrecto.',
+  'Target value': 'Valor meta',
+  'e.g. 0.15': 'ej. 0.15',
+  'Target label': 'Etiqueta de la meta',
+  'e.g. Meta Terceros': 'ej. Meta Terceros',
+  'When a target is set, the KPI card draws a goal-line chart instead of the plain number.':
+    'Con una meta definida, la tarjeta KPI dibuja una gráfica con línea de meta en vez del número simple.',
+  Target: 'Meta',
   'Date column to highlight': 'Columna de fecha a resaltar',
   'e.g. created_at': 'ej. created_at',
   'Target column': 'Columna objetivo',
   'Widgets on this dashboard that share this column will be filtered automatically.':
     'Los widgets de este dashboard que compartan esta columna se filtrarán automáticamente.',
   '{{n}} of {{total}} rows': '{{n}} de {{total}} filas',
+  'Showing first {{shown}} of {{total}} points':
+    'Mostrando los primeros {{shown}} de {{total}} puntos',
   'No rows match the active filters.':
     'Ninguna fila coincide con los filtros activos.',
   'This filter has no target column configured.':
@@ -784,6 +819,23 @@ export const es: Record<string, string> = {
   'No matching regions. The region column should hold country names.':
     'Sin regiones coincidentes. La columna de región debe contener nombres de países.',
 
+  // ── Widget TreeGrid (tabla analítica jerárquica) ───────────
+  'Analytical tree table': 'Tabla analítica jerárquica',
+  'Group by columns': 'Columnas para agrupar',
+  'Pick one or more columns to build the row hierarchy, in order.':
+    'Elige una o más columnas para armar la jerarquía de filas, en orden.',
+  'Value columns': 'Columnas de valor',
+  'Numeric columns to total per group.':
+    'Columnas numéricas a totalizar por grupo.',
+  'Choose a connector to see its columns.':
+    'Elige un conector para ver sus columnas.',
+  'Loading columns…': 'Cargando columnas…',
+  'Pick at least one value column': 'Elige al menos una columna de valor',
+  'Configure at least one value column to display this table.':
+    'Configura al menos una columna de valor para mostrar esta tabla.',
+  '(empty)': '(vacío)',
+  Total: 'Total',
+
   // ── Dashboards compartibles (shareable) ────────────────────
   'Share dashboard': 'Compartir tablero',
   'Compartir Dashboard': 'Compartir Dashboard',
@@ -802,4 +854,145 @@ export const es: Record<string, string> = {
     'Error al cargar el dashboard compartido',
   'Por favor, intenta con un link diferente':
     'Por favor, intenta con un link diferente',
+  // TreeGrid filtros dinámicos
+  'Administrar filtros': 'Administrar filtros',
+  Limpiar: 'Limpiar',
+  Filtros: 'Filtros',
+  // Labs pages
+  'Semantic Layer': 'Capa Semántica',
+  'Centralized semantic layer with Expression Engine. Widgets consume metrics defined here; none calculate data on their own.':
+    'Capa semántica centralizada con Expression Engine. Los widgets consumen métricas definidas aquí; ninguno calcula datos por su cuenta.',
+  'Calculated Metrics Widget': 'Widget de Métricas Calculadas',
+  'Metric consumption by region': 'Consumo de métricas por región',
+  'Analytic TreeGrid': 'TreeGrid Analítico',
+  'Enterprise widget with hierarchical grouping, virtualization and conditional formatting.':
+    'Widget empresarial con agrupación jerárquica, virtualización y formato condicional.',
+  Normal: 'Normal',
+  Loading: 'Cargando',
+  Error: 'Error',
+  'Sales by region and category': 'Ventas por región y categoría',
+  // Dashboard general
+  'No calculated metrics yet. Create the first one with "New metric".':
+    'Aún no hay métricas calculadas. Crea la primera con "Nueva métrica".',
+  'Métricas calculadas': 'Métricas calculadas',
+  'Nueva métrica': 'Nueva métrica',
+  // Dashboard Gallery
+  'My Dashboards': 'Mis Dashboards',
+  'View and interact with your dashboards. Edit from BI Dashboard.':
+    'Ver e interactuar con tus dashboards. Editar desde Panel BI.',
+  'Loading dashboards...': 'Cargando dashboards...',
+  'No dashboards yet': 'No hay dashboards aún',
+  'Create your first dashboard in BI Dashboard to see it here.':
+    'Crea tu primer dashboard en Panel BI para verlo aquí.',
+  'Go to BI Dashboard': 'Ir a Panel BI',
+  View: 'Ver',
+  Edit: 'Editar',
+  'View Only Mode • Changes are not saved': 'Modo Solo Lectura • Los cambios no se guardan',
+  'Loading dashboard...': 'Cargando dashboard...',
+  'Back to Dashboards': 'Volver a Dashboards',
+
+  // ── Help Center ──────────────────────────────────────────────
+  'Help Topics': 'Temas de Ayuda',
+  'Recently Visited': 'Visitados Recientemente',
+  'Last query executed': 'Última consulta ejecutada',
+  'widget(s) configured': 'widget(s) configurado(s)',
+  'Continue': 'Continuar',
+  'Guía Completa de Métricas': 'Guía Completa de Métricas',
+  'Aprende cómo crear y configurar métricas personalizadas en tu dashboard':
+    'Aprende cómo crear y configurar métricas personalizadas en tu dashboard',
+  '¿Qué es una Métrica?': '¿Qué es una Métrica?',
+  'Una métrica es un cálculo personalizado basado en los datos de tu base de datos. Permite:':
+    'Una métrica es un cálculo personalizado basado en los datos de tu base de datos. Permite:',
+  'Extraer información específica (mes, año, día de una fecha)':
+    'Extraer información específica (mes, año, día de una fecha)',
+  'Realizar cálculos matemáticos sobre columnas':
+    'Realizar cálculos matemáticos sobre columnas',
+  'Comparar contra objetivos o constantes': 'Comparar contra objetivos o constantes',
+  'Crear indicadores clave (KPIs) complejos': 'Crear indicadores clave (KPIs) complejos',
+  'Paso a Paso: Crear una Métrica': 'Paso a Paso: Crear una Métrica',
+  'Paso 1: Acceder al Widget': 'Paso 1: Acceder al Widget',
+  'En tu dashboard, haz clic en "Agregar Widget" o edita uno existente':
+    'En tu dashboard, haz clic en "Agregar Widget" o edita uno existente',
+  'Paso 2: Seleccionar Tipo de Widget': 'Paso 2: Seleccionar Tipo de Widget',
+  'Elige el tipo de visualización (KPI, Gráfica, Tabla, etc.)':
+    'Elige el tipo de visualización (KPI, Gráfica, Tabla, etc.)',
+  'Paso 3: Configurar la Consulta': 'Paso 3: Configurar la Consulta',
+  'Selecciona tu tabla y columnas. Para fórmulas personalizadas, usa el campo de fórmula':
+    'Selecciona tu tabla y columnas. Para fórmulas personalizadas, usa el campo de fórmula',
+  'Paso 4: Usar Constantes (Opcional)': 'Paso 4: Usar Constantes (Opcional)',
+  'Puedes referenciar constantes como venta_objetivo:':
+    'Puedes referenciar constantes como venta_objetivo:',
+  'Paso 5: Guardar': 'Paso 5: Guardar',
+  'Haz clic en "Guardar" para aplicar la métrica a tu widget':
+    'Haz clic en "Guardar" para aplicar la métrica a tu widget',
+  'Ejemplo Práctico: Ventas por Mes': 'Ejemplo Práctico: Ventas por Mes',
+  'Objetivo: Mostrar ventas totales de cada mes':
+    'Objetivo: Mostrar ventas totales de cada mes',
+  'Esto agrupará automáticamente las ventas por mes (1-12)':
+    'Esto agrupará automáticamente las ventas por mes (1-12)',
+  'Ejemplo Práctico: Porcentaje Alcanzado de Meta':
+    'Ejemplo Práctico: Porcentaje Alcanzado de Meta',
+  'Objetivo: Mostrar % de meta cumplida': 'Objetivo: Mostrar % de meta cumplida',
+  'Primero, define la constante:': 'Primero, define la constante:',
+  'Luego, usa esta fórmula:': 'Luego, usa esta fórmula:',
+  'Si vendiste 35,000: (35000 / 50000) * 100 = 70%':
+    'Si vendiste 35,000: (35000 / 50000) * 100 = 70%',
+  'Lenguaje de Fórmulas': 'Lenguaje de Fórmulas',
+  'El sistema usa un lenguaje similar a Excel/Google Sheets':
+    'El sistema usa un lenguaje similar a Excel/Google Sheets',
+  'Características Principales': 'Características Principales',
+  'Similar a Excel y Google Sheets': 'Similar a Excel y Google Sheets',
+  '+, -, *, /, %, comparadores (=, <, >, etc.)':
+    '+, -, *, /, %, comparadores (=, <, >, etc.)',
+  'MONTH, YEAR, DAY, SUM, AVG, COUNT, MAX, MIN, etc.':
+    'MONTH, YEAR, DAY, SUM, AVG, COUNT, MAX, MIN, etc.',
+  'Puedes referenciar columnas y constantes':
+    'Puedes referenciar columnas y constantes',
+  'Operadores Soportados': 'Operadores Soportados',
+  'Suma': 'Suma',
+  'Resta': 'Resta',
+  'Multiplicación': 'Multiplicación',
+  'División': 'División',
+  'Módulo': 'Módulo',
+  'Comparación': 'Comparación',
+  'Orden de Operaciones': 'Orden de Operaciones',
+  'Como en Excel, se respeta el siguiente orden:':
+    'Como en Excel, se respeta el siguiente orden:',
+  'Constantes y Variables': 'Constantes y Variables',
+  'Define valores fijos que puedas reutilizar en múltiples fórmulas':
+    'Define valores fijos que puedas reutilizar en múltiples fórmulas',
+  '¿Qué es una Constante?': '¿Qué es una Constante?',
+  'Una constante es un valor fijo que definas una sola vez y puedas usar en múltiples fórmulas. Ejemplos comunes:':
+    'Una constante es un valor fijo que definas una sola vez y puedas usar en múltiples fórmulas. Ejemplos comunes:',
+  'Cómo Definir una Constante': 'Cómo Definir una Constante',
+  'En el formulario de configuración del widget:':
+    'En el formulario de configuración del widget:',
+  'Luego puedes usarla en cualquier fórmula simplemente escribiendo su nombre':
+    'Luego puedes usarla en cualquier fórmula simplemente escribiendo su nombre',
+  'Ejemplos de Uso': 'Ejemplos de Uso',
+  'Ejemplo 1: Porcentaje de Meta': 'Ejemplo 1: Porcentaje de Meta',
+  'Ejemplo 2: Ganancia Esperada': 'Ejemplo 2: Ganancia Esperada',
+  'Ejemplo 3: Verificar Mínimo': 'Ejemplo 3: Verificar Mínimo',
+  'Ventajas de Usar Constantes': 'Ventajas de Usar Constantes',
+  'Define una vez, usa en muchas fórmulas': 'Define una vez, usa en muchas fórmulas',
+  'Cambia el valor en un solo lugar': 'Cambia el valor en un solo lugar',
+  'Nombres descriptivos hacen fórmulas legibles':
+    'Nombres descriptivos hacen fórmulas legibles',
+  'Funciones Disponibles': 'Funciones Disponibles',
+  'Todas las funciones que puedes usar en tus fórmulas':
+    'Todas las funciones que puedes usar en tus fórmulas',
+  'Fecha': 'Fecha',
+  'Agregación': 'Agregación',
+  'Matemática': 'Matemática',
+  'Lógica': 'Lógica',
+  'Texto': 'Texto',
+  'Notas Importantes': 'Notas Importantes',
+  '• Los nombres de funciones son case-insensitive (MONTH = month)':
+    '• Los nombres de funciones son case-insensitive (MONTH = month)',
+  '• Los nombres de columnas y constantes son case-sensitive':
+    '• Los nombres de columnas y constantes son case-sensitive',
+  '• Las fechas deben estar en formato ISO (YYYY-MM-DD)':
+    '• Las fechas deben estar en formato ISO (YYYY-MM-DD)',
+  '• Usa comillas para valores de texto: "ejemplo"':
+    '• Usa comillas para valores de texto: "ejemplo"',
 }

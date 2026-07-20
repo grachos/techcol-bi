@@ -10,6 +10,7 @@ import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters
 import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Card, CardContent } from '@/components/ui/card'
+import { WidgetErrorBoundary } from '@/components/widget-error-boundary'
 import { ShareTokenProvider } from '../share-context'
 import { WidgetCard } from './widget-card'
 
@@ -20,7 +21,9 @@ interface DashboardViewProps {
 
 export function DashboardView({ dashboard, shareToken }: DashboardViewProps) {
   const isMobile = useIsMobile()
-  const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
+  const [activeFilters, setActiveFilters] = useState<ActiveFilters>(
+    dashboard?.lastFilters ?? {}
+  )
 
   const handleFilterChange = (
     column: string,
@@ -76,15 +79,17 @@ export function DashboardView({ dashboard, shareToken }: DashboardViewProps) {
         >
           {widgets.map((widget: any) => (
             <div key={widget.id}>
-              <WidgetCard
-                widget={widget}
-                activeFilters={activeFilters}
-                onFilterChange={handleFilterChange}
-                onEdit={() => {}}
-                onDelete={() => {}}
-                isEditing={false}
-                isSharedView={true}
-              />
+              <WidgetErrorBoundary>
+                <WidgetCard
+                  widget={widget}
+                  activeFilters={activeFilters}
+                  onFilterChange={handleFilterChange}
+                  onEdit={() => {}}
+                  onDelete={() => {}}
+                  isEditing={false}
+                  isSharedView={true}
+                />
+              </WidgetErrorBoundary>
             </div>
           ))}
         </GridLayoutWithWidth>

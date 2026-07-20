@@ -32,7 +32,10 @@ export function SelectFilterWidget({
     widget,
     activeFilters
   )
-  const [selectedValues, setSelectedValues] = useState<Set<string>>(new Set())
+  const restoredValue = widget.filterColumn ? activeFilters[widget.filterColumn] : undefined
+  const [selectedValues, setSelectedValues] = useState<Set<string>>(
+    () => new Set(restoredValue?.type === 'select' ? restoredValue.values : [])
+  )
   const [popoverOpen, setPopoverOpen] = useState(false)
 
   const options = useMemo(() => {
