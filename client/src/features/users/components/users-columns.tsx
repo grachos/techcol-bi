@@ -9,7 +9,10 @@ import { callTypes, roles } from '../data/data'
 import { type User } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
-export function getUsersColumns(t: TFunction): ColumnDef<User>[] {
+export function getUsersColumns(
+  t: TFunction,
+  onUpdateUserStatus?: (userId: string, status: 'active' | 'inactive') => void
+): ColumnDef<User>[] {
  return [
   {
     id: 'select',
@@ -169,7 +172,9 @@ export function getUsersColumns(t: TFunction): ColumnDef<User>[] {
   },
   {
     id: 'actions',
-    cell: DataTableRowActions,
+    cell: ({ row }) => (
+      <DataTableRowActions row={row} onUpdateUserStatus={onUpdateUserStatus} />
+    ),
   },
  ]
 }

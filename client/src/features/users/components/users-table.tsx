@@ -32,11 +32,14 @@ type DataTableProps = {
   data: User[]
   search: Record<string, unknown>
   navigate: NavigateFn
+  onUpdateUserStatus?: (userId: string, status: 'active' | 'inactive') => void
+  onDeleteUser?: (userId: string) => void
+  onUpdateUsers?: (users: User[]) => void
 }
 
-export function UsersTable({ data, search, navigate }: DataTableProps) {
+export function UsersTable({ data, search, navigate, onUpdateUserStatus, onDeleteUser, onUpdateUsers }: DataTableProps) {
   const { t } = useTranslation()
-  const columns = useMemo(() => getUsersColumns(t), [t])
+  const columns = useMemo(() => getUsersColumns(t, onUpdateUserStatus), [t, onUpdateUserStatus])
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -113,8 +116,6 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
             options: [
               { label: t('Active'), value: 'active' },
               { label: t('Inactive'), value: 'inactive' },
-              { label: t('Invited'), value: 'invited' },
-              { label: t('Suspended'), value: 'suspended' },
             ],
           },
           {
@@ -191,7 +192,12 @@ export function UsersTable({ data, search, navigate }: DataTableProps) {
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
-      <DataTableBulkActions table={table} />
+      <DataTableBulkActions
+        table={table}
+        onUpdateUserStatus={onUpdateUserStatus}
+        onDeleteUser={onDeleteUser}
+        onUpdateUsers={onUpdateUsers}
+      />
     </div>
   )
 }

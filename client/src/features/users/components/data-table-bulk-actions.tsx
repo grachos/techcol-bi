@@ -16,10 +16,16 @@ import { UsersMultiDeleteDialog } from './users-multi-delete-dialog'
 
 type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
+  onUpdateUserStatus?: (userId: string, status: 'active' | 'inactive') => void
+  onDeleteUser?: (userId: string) => void
+  onUpdateUsers?: (users: User[]) => void
 }
 
 export function DataTableBulkActions<TData>({
   table,
+  onUpdateUserStatus,
+  onDeleteUser,
+  onUpdateUsers,
 }: DataTableBulkActionsProps<TData>) {
   const { t } = useTranslation()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -27,16 +33,18 @@ export function DataTableBulkActions<TData>({
 
   const handleBulkStatusChange = (status: 'active' | 'inactive') => {
     const selectedUsers = selectedRows.map((row) => row.original as User)
-    toast.promise(sleep(2000), {
-      loading: status === 'active' ? t('Activating users...') : t('Deactivating users...'),
-      success: () => {
-        table.resetRowSelection()
-        return t(status === 'active' ? '{{n}} user(s) activated' : '{{n}} user(s) deactivated', {
-          n: selectedUsers.length,
-        })
-      },
-      error: status === 'active' ? t('Error activating users') : t('Error deactivating users'),
-    })
+
+    if (onUpdateUserStatus) {
+      selectedUsers.forEach((user) => {
+        onUpdateUserStatus(user.id, status)
+      })
+    }
+
+    toast.success(
+      t(status === 'active' ? '{{n}} user(s) activated' : '{{n}} user(s) deactivated', {
+        n: selectedUsers.length,
+      })
+    )
     table.resetRowSelection()
   }
 
