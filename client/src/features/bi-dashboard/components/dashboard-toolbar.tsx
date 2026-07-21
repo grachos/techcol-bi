@@ -88,18 +88,30 @@ export function DashboardToolbar({
     return Array.from(set).sort()
   }, [dashboards])
 
-  const favorites = dashboards.filter((d) => d.isFavorite)
+  const favorites = useMemo(() => {
+    return dashboards
+      .filter((d) => d.isFavorite)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [dashboards])
 
   const filteredExplore = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return dashboards.filter((d) => {
-      const matchesSearch =
-        !q ||
-        d.name.toLowerCase().includes(q) ||
-        d.tags.some((tag) => tag.toLowerCase().includes(q))
-      const matchesTag = !activeTag || d.tags.includes(activeTag)
-      return matchesSearch && matchesTag
-    })
+    return dashboards
+      .filter((d) => {
+        const matchesSearch =
+          !q ||
+          d.name.toLowerCase().includes(q) ||
+          d.tags.some((tag) => tag.toLowerCase().includes(q))
+        const matchesTag = !activeTag || d.tags.includes(activeTag)
+        return matchesSearch && matchesTag
+      })
+      .sort((a, b) => {
+        // Favoritos primero, luego alfabético
+        if (a.isFavorite !== b.isFavorite) {
+          return a.isFavorite ? -1 : 1
+        }
+        return a.name.localeCompare(b.name)
+      })
   }, [dashboards, search, activeTag])
 
   const handleToggleFavorite = async (d: DashboardSummary) => {

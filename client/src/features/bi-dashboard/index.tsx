@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearch } from '@tanstack/react-router'
 import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -47,6 +48,7 @@ import { WidgetDialog } from './components/widget-dialog'
 export function BiDashboard() {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
+  const search = useSearch({ from: '/_authenticated/bi/' })
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [widgets, setWidgets] = useState<Widget[]>([])
@@ -108,16 +110,20 @@ export function BiDashboard() {
         const list = await dashboardApi.list()
         setDashboards(list)
 
-        const targetId = !keepSelection
-          ? list[0]?.id ?? null
-          : (selectedId ?? list[0]?.id) ?? null
+        // Prioriza: dashboardId de URL > selectedId actual > primer dashboard
+        const urlDashboardId = (search as any)?.dashboardId
+        const targetId = urlDashboardId
+          ? Number(urlDashboardId)
+          : !keepSelection
+            ? list[0]?.id ?? null
+            : (selectedId ?? list[0]?.id) ?? null
 
         setSelectedId(targetId)
       } catch (error) {
         toast.error(String(error instanceof Error ? error.message : error))
       }
     },
-    [selectedId]
+    [selectedId, search]
   )
 
   useEffect(() => {

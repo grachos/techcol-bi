@@ -24,6 +24,14 @@ export function DashboardGallery() {
     .filter((d) => d.lastQueriedAt)
     .sort((a, b) => new Date(b.lastQueriedAt!).getTime() - new Date(a.lastQueriedAt!).getTime())[0]
 
+  const sortedDashboards = dashboards.sort((a, b) => {
+    // Favoritos primero, luego alfabético
+    if (a.isFavorite !== b.isFavorite) {
+      return a.isFavorite ? -1 : 1
+    }
+    return a.name.localeCompare(b.name)
+  })
+
   useEffect(() => {
     loadDashboards()
   }, [])
@@ -125,7 +133,7 @@ export function DashboardGallery() {
           </div>
         ) : (
           <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-6'>
-            {dashboards.map((dashboard) => (
+            {sortedDashboards.map((dashboard) => (
               <DashboardCard
                 key={dashboard.id}
                 dashboard={dashboard}
