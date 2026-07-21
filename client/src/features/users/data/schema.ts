@@ -8,12 +8,13 @@ const userStatusSchema = z.union([
 ])
 export type UserStatus = z.infer<typeof userStatusSchema>
 
-const userRoleSchema = z.union([
-  z.literal('superadmin'),
-  z.literal('admin'),
-  z.literal('cashier'),
-  z.literal('manager'),
-])
+export type UserRole = 'admin' | 'custom'
+
+const userPermissionSchema = z.object({
+  dashboardIds: z.array(z.number()).default([]),
+  pageNames: z.array(z.string()).default([]),
+})
+export type UserPermission = z.infer<typeof userPermissionSchema>
 
 const _userSchema = z.object({
   id: z.string(),
@@ -23,7 +24,8 @@ const _userSchema = z.object({
   email: z.string(),
   phoneNumber: z.string(),
   status: userStatusSchema,
-  role: userRoleSchema,
+  role: z.enum(['admin', 'custom']),
+  permissions: userPermissionSchema.optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 })

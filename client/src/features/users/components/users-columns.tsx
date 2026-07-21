@@ -119,16 +119,50 @@ export function getUsersColumns(t: TFunction): ColumnDef<User>[] {
       }
 
       return (
-        <div className='flex items-center gap-x-2'>
+        <div className='flex items-center gap-x-2' title={userType.description}>
           {userType.icon && (
             <userType.icon size={16} className='text-muted-foreground' />
           )}
-          <span className='text-sm capitalize'>{t(row.getValue('role') as string)}</span>
+          <span className='text-sm capitalize'>{t(userType.label)}</span>
         </div>
       )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
+    id: 'permissions',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title={t('Permissions')} />
+    ),
+    cell: ({ row }) => {
+      const { role, permissions } = row.original
+
+      if (role === 'admin') {
+        return <Badge variant='default'>{t('Full Access')}</Badge>
+      }
+
+      if (!permissions || (permissions.dashboardIds?.length === 0 && permissions.pageNames?.length === 0)) {
+        return <Badge variant='outline'>{t('No access')}</Badge>
+      }
+
+      return (
+        <div className='flex flex-wrap gap-1'>
+          {(permissions.dashboardIds?.length ?? 0) > 0 && (
+            <Badge variant='secondary'>
+              {permissions.dashboardIds!.length} {t('Dashboard(s)')}
+            </Badge>
+          )}
+          {(permissions.pageNames?.length ?? 0) > 0 && (
+            <Badge variant='secondary'>
+              {permissions.pageNames!.length} {t('Page(s)')}
+            </Badge>
+          )}
+        </div>
+      )
     },
     enableSorting: false,
     enableHiding: false,

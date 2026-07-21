@@ -1,5 +1,5 @@
-import { Shield, UserCheck, Users, CreditCard } from 'lucide-react'
-import { type UserStatus } from './schema'
+import { Shield, User } from 'lucide-react'
+import { type UserStatus, type UserRole } from './schema'
 
 export const callTypes = new Map<UserStatus, string>([
   ['active', 'bg-teal-100/30 text-teal-900 dark:text-teal-200 border-teal-200'],
@@ -11,25 +11,17 @@ export const callTypes = new Map<UserStatus, string>([
   ],
 ])
 
-export const roles = [
+export const roles: Array<{ label: string; value: UserRole; icon: any; description: string }> = [
   {
-    label: 'Superadmin',
-    value: 'superadmin',
-    icon: Shield,
-  },
-  {
-    label: 'Admin',
+    label: 'Administrador',
     value: 'admin',
-    icon: UserCheck,
+    icon: Shield,
+    description: 'Acceso total al sistema',
   },
   {
-    label: 'Manager',
-    value: 'manager',
-    icon: Users,
-  },
-  {
-    label: 'Cashier',
-    value: 'cashier',
-    icon: CreditCard,
+    label: 'Usuario Personalizado',
+    value: 'custom',
+    icon: User,
+    description: 'Acceso limitado a dashboards y páginas asignadas',
   },
 ] as const

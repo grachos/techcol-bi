@@ -23,10 +23,26 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import { PasswordInput } from '@/components/password-input'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { roles } from '../data/data'
 import { type User } from '../data/schema'
+
+const AVAILABLE_DASHBOARDS = [
+  { id: 1, name: 'Sales Dashboard' },
+  { id: 2, name: 'Analytics Dashboard' },
+  { id: 3, name: 'Financial Dashboard' },
+  { id: 4, name: 'Inventory Dashboard' },
+]
+
+const AVAILABLE_PAGES = [
+  { name: 'dashboard', label: 'Dashboard' },
+  { name: 'bi', label: 'BI Dashboard' },
+  { name: 'connectors', label: 'Connectors' },
+  { name: 'reports', label: 'Reports' },
+  { name: 'chats', label: 'Chats' },
+]
 
 function buildSchema(t: (k: string) => string) {
   return z
@@ -39,8 +55,10 @@ function buildSchema(t: (k: string) => string) {
         error: (iss) => (iss.input === '' ? t('Email is required.') : undefined),
       }),
       password: z.string().transform((pwd) => pwd.trim()),
-      role: z.string().min(1, t('Role is required.')),
+      role: z.enum(['admin', 'custom'], { message: t('Role is required.') }),
       confirmPassword: z.string().transform((pwd) => pwd.trim()),
+      dashboardIds: z.array(z.number()).default([]),
+      pageNames: z.array(z.string()).default([]),
       isEdit: z.boolean(),
     })
     .refine(
@@ -117,6 +135,8 @@ export function UsersActionDialog({
           ...currentRow,
           password: '',
           confirmPassword: '',
+          dashboardIds: currentRow?.permissions?.dashboardIds ?? [],
+          pageNames: currentRow?.permissions?.pageNames ?? [],
           isEdit,
         }
       : {
@@ -124,13 +144,17 @@ export function UsersActionDialog({
           lastName: '',
           username: '',
           email: '',
-          role: '',
+          role: 'custom',
           phoneNumber: '',
           password: '',
           confirmPassword: '',
+          dashboardIds: [],
+          pageNames: [],
           isEdit,
         },
   })
+
+  const selectedRole = form.watch('role')
 
   const onSubmit = (values: UserForm) => {
     form.reset()
@@ -269,8 +293,8 @@ export function UsersActionDialog({
                       onValueChange={field.onChange}
                       placeholder={t('Select a role')}
                       className='col-span-4'
-                      items={roles.map(({ label, value }) => ({
-                        label: t(label),
+                      items={roles.map(({ label, value, description }) => ({
+                        label: `${t(label)} - ${description}`,
                         value,
                       }))}
                     />
@@ -278,6 +302,90 @@ export function UsersActionDialog({
                   </FormItem>
                 )}
               />
+
+              {selectedRole === 'custom' && (
+                <>
+                  <div className='col-span-6 border-t pt-4 mt-2'>
+                    <p className='text-sm font-semibold mb-3'>{t('Access Permissions')}</p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name='dashboardIds'
+                    render={() => (
+                      <FormItem className='grid grid-cols-6 gap-x-4 gap-y-2'>
+                        <FormLabel className='col-span-2 text-end pt-2'>
+                          {t('Dashboards')}
+                        </FormLabel>
+                        <div className='col-span-4 space-y-2'>
+                          {AVAILABLE_DASHBOARDS.map((db) => (
+                            <FormField
+                              key={db.id}
+                              control={form.control}
+                              name='dashboardIds'
+                              render={({ field }) => (
+                                <FormItem className='flex items-center gap-2 space-y-0'>
+                                  <Checkbox
+                                    checked={field.value?.includes(db.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...(field.value ?? []), db.id])
+                                      } else {
+                                        field.onChange(field.value?.filter((id) => id !== db.id) ?? [])
+                                      }
+                                    }}
+                                  />
+                                  <FormLabel className='text-sm font-normal cursor-pointer'>
+                                    {db.name}
+                                  </FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='pageNames'
+                    render={() => (
+                      <FormItem className='grid grid-cols-6 gap-x-4 gap-y-2'>
+                        <FormLabel className='col-span-2 text-end pt-2'>
+                          {t('Pages')}
+                        </FormLabel>
+                        <div className='col-span-4 space-y-2'>
+                          {AVAILABLE_PAGES.map((page) => (
+                            <FormField
+                              key={page.name}
+                              control={form.control}
+                              name='pageNames'
+                              render={({ field }) => (
+                                <FormItem className='flex items-center gap-2 space-y-0'>
+                                  <Checkbox
+                                    checked={field.value?.includes(page.name)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...(field.value ?? []), page.name])
+                                      } else {
+                                        field.onChange(field.value?.filter((name) => name !== page.name) ?? [])
+                                      }
+                                    }}
+                                  />
+                                  <FormLabel className='text-sm font-normal cursor-pointer'>
+                                    {t(page.label)}
+                                  </FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
               <FormField
                 control={form.control}
                 name='password'

@@ -1,5 +1,6 @@
 import { getRouteApi } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { AlertCircle } from 'lucide-react'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitch } from '@/components/language-switch'
 import { Header } from '@/components/layout/header'
@@ -7,6 +8,7 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { UsersDialogs } from './components/users-dialogs'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
 import { UsersProvider } from './components/users-provider'
@@ -35,11 +37,22 @@ export function Users() {
           <div>
             <h2 className='text-2xl font-bold tracking-tight'>{t('User List')}</h2>
             <p className='text-muted-foreground'>
-              {t('Manage your users and their roles here.')}
+              {t('Manage users and assign roles and access permissions.')}
             </p>
           </div>
           <UsersPrimaryButtons />
         </div>
+
+        <Alert>
+          <AlertCircle className='h-4 w-4' />
+          <AlertTitle>{t('Administrator Only')}</AlertTitle>
+          <AlertDescription>
+            {t(
+              'Only administrators can manage users in this module. Users with custom roles can access only the dashboards and pages assigned to them.'
+            )}
+          </AlertDescription>
+        </Alert>
+
         <UsersTable data={users} search={search} navigate={navigate} />
       </Main>
 
