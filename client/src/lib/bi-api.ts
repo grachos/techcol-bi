@@ -3,6 +3,7 @@
  * En dev, Vite hace proxy de /api -> http://localhost:4000.
  */
 import { apiFetch } from './api-fetch'
+import type { FormatSpec } from './semantic-layer/types'
 
 export type ConnectorType =
   | 'rest_api'
@@ -25,6 +26,71 @@ export interface ConnectorData {
   name: string
   type: ConnectorType
   data: unknown
+  /** true si el servidor recorto la respuesta por el tope de memoria (MAX_ROWS). */
+  truncated?: boolean
+}
+
+/** Spec de agregacion server-side para un widget stat (ver aggregation-service). */
+export interface StatAggQuery {
+  yKey: string | null
+  aggregation?: string
+  breakdownKey?: string | null
+  granoKey?: string | null
+}
+
+export interface StatAggBody {
+  params?: Record<string, string>
+  activeFilters?: unknown
+  calculatedMeasures?: unknown[]
+  query: StatAggQuery
+}
+
+export interface StatAggResult {
+  value: number | null
+  formatted: string | null
+  points: { label: string; value: number; formatted: string | null }[] | null
+  rowCount: number
+  totalRowCount: number
+  spark: number[]
+  format: FormatSpec | null
+  isCalculated: boolean
+}
+
+/** Agregacion server-side para un widget tree_grid (Tabla dinamica). */
+export interface TreeAggBody {
+  params?: Record<string, string>
+  activeFilters?: unknown
+  calculatedMeasures?: unknown[]
+  mode: 'tree'
+  query: { groupByColumns: string[]; valueColumns: string[] }
+}
+
+export interface TreeNodeDTO {
+  key: string
+  depth: number
+  dimensionValues: Record<string, unknown>
+  metrics: Record<string, unknown>
+  formatted: Record<string, string>
+  rowCount: number
+  isLeaf: boolean
+  children: TreeNodeDTO[]
+}
+
+export interface TreeColumnMeta {
+  id: string
+  header: string
+  type: 'number' | 'percent' | 'currency'
+  decimals?: number
+  currency?: string
+}
+
+export interface TreeAggResult {
+  root: TreeNodeDTO
+  leaves: Record<string, unknown>[]
+  groupByColumns: string[]
+  valueColumns: string[]
+  columnsMeta: TreeColumnMeta[]
+  totalRowCount: number
 }
 
 /** Tabla candidata detectada dentro de una respuesta anidada (estilo Power BI). */
@@ -119,6 +185,20 @@ export const biApi = {
   data: (id: number, params: Record<string, string> = {}): Promise<ConnectorData> =>
     apiFetch(`/api/connectors/${id}/data${toQuery(params)}`).then((r) => handle(r)),
 
+  aggregate: (id: number, body: StatAggBody): Promise<StatAggResult> =>
+    apiFetch(`/api/connectors/${id}/aggregate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => handle(r)),
+
+  aggregateTree: (id: number, body: TreeAggBody): Promise<TreeAggResult> =>
+    apiFetch(`/api/connectors/${id}/aggregate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => handle(r)),
+
   preview: (
     id: number,
     query: string
@@ -158,6 +238,34 @@ export const biApi = {
     ): Promise<ConnectorData> =>
       fetch(
         `/api/dashboards/share/${token}/connectors/${connectorId}/data${toQuery(params)}`
+      ).then((r) => handle(r)),
+
+    aggregateShared: (
+      token: string,
+      connectorId: number,
+      body: StatAggBody
+    ): Promise<StatAggResult> =>
+      fetch(
+        `/api/dashboards/share/${token}/connectors/${connectorId}/aggregate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
+      ).then((r) => handle(r)),
+
+    aggregateTreeShared: (
+      token: string,
+      connectorId: number,
+      body: TreeAggBody
+    ): Promise<TreeAggResult> =>
+      fetch(
+        `/api/dashboards/share/${token}/connectors/${connectorId}/aggregate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
       ).then((r) => handle(r)),
   },
 }

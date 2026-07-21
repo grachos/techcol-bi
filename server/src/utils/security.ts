@@ -1,22 +1,33 @@
 import dns from "dns/promises";
 import net from "net";
 
-// 1000 se quedaba corto para rangos de fecha reales: una fuente con buen
-// volumen diario (ej. Silog) puede superar 1000 filas en solo un mes, y el
-// corte silencioso dejaba fuera el resto del rango (ej. julio desaparecia
-// de un filtro 1/jun-19/jul porque junio solo ya llenaba las 1000 filas).
-const MAX_ROWS = 10000;
+// Backstop puro contra OOM, NO un limite de negocio. 10000 se quedaba corto y
+// -- peor -- cortaba SILENCIOSAMENTE a mitad del rango: un año de Silog son
+// ~36k filas ordenadas por fecha, asi que el corte a 10000 dejaba solo los
+// primeros ~4 meses y el dashboard parecia "no traer el resto del año".
+// Se sube a un techo que cubre rangos multi-año reales; si de verdad se
+// alcanza, se avisa (abajo) en vez de mentir con datos incompletos.
+// ponytail: techo fijo en memoria del cliente; el fix escalable de verdad
+// para volumenes enormes es agregar del lado del servidor (GROUP BY en la
+// fuente) en vez de mandar filas crudas al navegador.
+const MAX_ROWS = 200000;
+
+export interface TruncateResult<T> {
+  data: T;
+  truncated: boolean;
+}
 
 /**
- * Trunca la respuesta de un conector a MAX_ROWS filas. Protege memoria y
- * ancho de banda cuando la fuente (REST, Sheets, Excel) no tiene su propio
- * LIMIT -- los conectores SQL ya limitan via la query del usuario.
+ * Recorta la respuesta de un conector a MAX_ROWS filas SOLO como proteccion
+ * de memoria (fuentes REST/Sheets/Excel sin LIMIT propio; los SQL ya limitan
+ * via la query del usuario). Devuelve `truncated` para que la ruta pueda
+ * avisar al cliente en vez de servir un rango cortado en silencio.
  */
-export function truncateRows<T = unknown>(data: T): T {
+export function truncateRows<T = unknown>(data: T): TruncateResult<T> {
   if (Array.isArray(data) && data.length > MAX_ROWS) {
-    return data.slice(0, MAX_ROWS) as unknown as T;
+    return { data: data.slice(0, MAX_ROWS) as unknown as T, truncated: true };
   }
-  return data;
+  return { data, truncated: false };
 }
 
 /**

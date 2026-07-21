@@ -162,7 +162,11 @@ export class RestAPIConnector extends BaseConnector {
       url: this.cfg.url,
       params: this.resolveQueryParams(params),
       headers,
-      timeout: 15_000,
+      // Fuentes con buen volumen (ej. Silog con un rango de meses) pueden
+      // tardar >13s en responder -- 15s dejaba casi cero margen y el sync
+      // fallaba por timeout con datos que la fuente si tenia. La
+      // autenticacion (aparte, mas abajo) sigue en 15s: eso si es rapido.
+      timeout: 60_000,
     });
 
     return response.data;

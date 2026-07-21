@@ -66,15 +66,45 @@ export function measureToDef(measure: Measure): MeasureDef {
 }
 
 /**
- * Construye un MeasureRegistry con todas las medidas de un SemanticModel
- * (reusa su mismo ExpressionEngine, para que funciones registradas ahi
- * tambien esten disponibles). Una medida que ya no valida (ej. referencia a
- * otra medida borrada, o una dependencia de grano invalida) se omite en vez
- * de romper el arbol completo -- se avisa por consola para depurar.
+ * Cierre transitivo de dependencias de un conjunto de medidas: una medida
+ * 'derived' referencia otras por nombre (ej. "rentabilidad" = margen/total),
+ * y esas dependencias tienen que estar en el registro para que se puedan
+ * resolver -- pero no hace falta nada mas alla de eso.
  */
-export function buildRegistryFromModel(model: SemanticModel): MeasureRegistry {
+function measureClosure(model: SemanticModel, names: Iterable<string>): Set<string> {
+  const closure = new Set<string>()
+  const visit = (name: string) => {
+    if (closure.has(name) || !model.getMeasure(name)) return
+    closure.add(name)
+    for (const dep of model.getDependencies(name)) visit(dep)
+  }
+  for (const name of names) visit(name)
+  return closure
+}
+
+/**
+ * Construye un MeasureRegistry con las medidas de un SemanticModel (reusa su
+ * mismo ExpressionEngine, para que funciones registradas ahi tambien esten
+ * disponibles). Una medida que ya no valida (ej. referencia a otra medida
+ * borrada, o una dependencia de grano invalida) se omite en vez de romper el
+ * arbol completo -- se avisa por consola para depurar.
+ *
+ * `onlyNames`: si se da, solo se registran esas medidas + su cierre de
+ * dependencias -- NO todas las del modelo. El motor de arbol evalua TODAS
+ * las medidas del registro en CADA nodo (ver build-tree.ts computeMetrics);
+ * un modelo auto-inferido de una fuente ancha (ej. Silog, ~30 columnas
+ * numericas -> ~30 medidas SUM) sin este filtro evalua las ~30 aunque el
+ * widget solo pida 1 o 2, multiplicado por miles de nodos del arbol -- el
+ * cuello de botella real de un dashboard "lento al cambiar un widget".
+ */
+export function buildRegistryFromModel(
+  model: SemanticModel,
+  onlyNames?: Iterable<string>
+): MeasureRegistry {
   const registry = new MeasureRegistry(model.getExpressionEngine())
+  const wanted = onlyNames ? measureClosure(model, onlyNames) : null
   for (const measure of model.listMeasures()) {
+    if (wanted && !wanted.has(measure.name)) continue
     try {
       registry.register(measureToDef(measure))
     } catch (error) {

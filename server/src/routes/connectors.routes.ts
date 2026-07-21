@@ -5,10 +5,10 @@ import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
 import { parseRuntimeParams } from "../utils/runtime-params";
 import { buildResponsePreview } from "../utils/response-preview";
 import { findTableCandidates } from "../utils/table-finder";
-import {
-  getCachedConnectorData,
-  invalidateConnectorCache,
-} from "../services/connector-cache";
+import { invalidateConnectorCache } from "../services/connector-cache";
+import { aggregateStat, aggregateTree } from "../services/aggregation-service";
+import { runSync } from "../services/sync-service";
+import { getRowsForAggregation, getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 
@@ -20,6 +20,7 @@ interface ConnectorRow {
   name: string;
   type: ConnectorType;
   config: string | EncryptedPayload;
+  date_column?: string | null;
   created_at: string;
 }
 
@@ -210,18 +211,115 @@ router.get("/:id/data", async (req: Request, res: Response) => {
     }
 
     const params = parseRuntimeParams(req.query);
-    const data = await getCachedConnectorData(connector.id, params, async () => {
-      const config = decryptConfig(parseStoredConfig(connector.config));
-      const instance = ConnectorFactory.create(connector.type, config);
-      return instance.fetchData(params);
-    });
+    const { rows: sourceRows } = await getRawRowsForConnector(connector, params);
 
+    const { data: rowsOut, truncated } = truncateRows(sourceRows);
     res.json({
       id: connector.id,
       name: connector.name,
       type: connector.type,
-      data: truncateRows(data),
+      data: rowsOut,
+      truncated,
     });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Configuracion de sincronizacion: que columna es la fecha (para sync
+// incremental), cuantos dias de ventana relee hacia atras, y cada cuanto
+// sincroniza solo (NULL = solo manual via POST /:id/sync).
+router.put("/:id/sync-config", async (req: Request, res: Response) => {
+  const { dateColumn, syncWindowDays, syncIntervalMinutes } = req.body ?? {};
+  try {
+    const [result]: any = await pool.query(
+      `UPDATE connectors
+       SET date_column = ?, sync_window_days = ?, sync_interval_minutes = ?
+       WHERE id = ? AND user_id = ?`,
+      [
+        dateColumn || null,
+        syncWindowDays ?? 30,
+        syncIntervalMinutes || null,
+        req.params.id,
+        req.userId,
+      ]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sincroniza el conector hacia el motor analitico (DuckDB): esta es la UNICA
+// via por la que la API externa se consulta para "actualizar datos" -- el
+// resto de la app (dashboards, /aggregate) lee lo ya sincronizado.
+router.post("/:id/sync", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT id, type, config, date_column, sync_window_days
+       FROM connectors WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.userId]
+    );
+    const connector = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    const { from, to } = req.body ?? {};
+    const result = await runSync(connector, from || to ? { from, to } : undefined);
+    res.json({ status: "idle", ...result });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, status: "error" });
+  }
+});
+
+// Estado de la ultima sincronizacion (para mostrar "actualizado hace X min").
+router.get("/:id/sync", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT s.status, s.last_sync_at, s.last_watermark, s.row_count, s.last_error
+       FROM sync_state s
+       JOIN connectors c ON c.id = s.connector_id
+       WHERE s.connector_id = ? AND c.user_id = ?`,
+      [req.params.id, req.userId]
+    );
+    res.json(rows[0] ?? { status: "idle", last_sync_at: null, row_count: null });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Agregacion server-side: el widget manda una spec y recibe solo el resultado
+// agregado (KB), no las filas crudas (MB). Reusa el cache de /data (misma
+// clave connectorId+params), asi que no golpea la fuente de mas.
+router.post("/:id/aggregate", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
+      [req.params.id, req.userId]
+    );
+    const connector: ConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    const params = parseRuntimeParams(req.body?.params);
+    const filters = req.body?.activeFilters ?? {};
+    const calc = req.body?.calculatedMeasures ?? [];
+    const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
+    const query = req.body?.query ?? {};
+    const { rows: rawRows } = await getRowsForAggregation(connector, params, filters, {
+      mode,
+      query,
+      calculatedMeasures: calc,
+    });
+
+    const result =
+      mode === "tree" ? aggregateTree(rawRows, calc, filters, query) : aggregateStat(rawRows, calc, filters, query);
+    res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

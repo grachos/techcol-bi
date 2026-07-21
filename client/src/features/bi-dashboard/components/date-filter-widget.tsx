@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { type DateRange } from 'react-day-picker'
-import { CalendarIcon, Search, X } from 'lucide-react'
+import { AlertTriangle, CalendarIcon, Search, X } from 'lucide-react'
 import { type Widget } from '@/lib/dashboard-api'
-import { toLocalDay, type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
+import { useConnectorData } from '@/hooks/use-connector-data'
+import {
+  filtersToParams,
+  toLocalDay,
+  type ActiveFilterValue,
+  type ActiveFilters,
+} from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -43,6 +49,14 @@ export function DateFilterWidget({ widget, activeFilters, onChange }: DateFilter
   const restored = initialRangeFrom(activeFilters, column)
   const [range, setRange] = useState<DateRange | undefined>(restored)
   const [applied, setApplied] = useState<DateRange | undefined>(restored)
+
+  // Reusa el mismo cache de React Query que ya piden los demas widgets del
+  // conector (misma connectorId+params): no dispara una llamada extra a la
+  // fuente, solo lee el flag `truncated` que el servidor marca cuando la
+  // respuesta supero el tope de memoria (MAX_ROWS) y vino recortada.
+  const params =
+    widget.connectorType === 'rest_api' ? filtersToParams(activeFilters ?? {}) : {}
+  const { truncated } = useConnectorData(widget.connectorId, params)
 
   const handleApply = () => {
     if (!column) return
@@ -131,6 +145,12 @@ export function DateFilterWidget({ widget, activeFilters, onChange }: DateFilter
       <p className='text-muted-foreground truncate text-xs'>
         {t('Filters column "{{column}}"', { column })}
       </p>
+      {truncated && (
+        <p className='flex items-center gap-1 text-center text-xs text-amber-600 dark:text-amber-500'>
+          <AlertTriangle className='size-3.5 shrink-0' />
+          {t('Too many rows — showing a partial result. Narrow the range.')}
+        </p>
+      )}
     </div>
   )
 }

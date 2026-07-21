@@ -14,6 +14,7 @@ import authRoutes from "./routes/auth.routes";
 import connectorsRoutes from "./routes/connectors.routes";
 import dashboardsRoutes from "./routes/dashboards.routes";
 import aiRoutes from "./routes/ai.routes";
+import { startSyncScheduler } from "./services/sync-service";
 
 const app = express();
 
@@ -83,3 +84,7 @@ app.listen(config.port, () => {
   console.log(`  Dashboards: http://localhost:${config.port}/api/dashboards`);
   console.log(`  IA:         http://localhost:${config.port}/api/ai/suggest-widget`);
 });
+
+// Programador de sincronizacion: revisa cada 60s que conectores con
+// sync_interval_minutes configurado ya vencieron y los sincroniza.
+startSyncScheduler();

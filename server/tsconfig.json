@@ -4,7 +4,11 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./src",
+    // rootDir sube a la raiz del repo para poder compilar el motor semantico
+    // compartido en client/src/lib/semantic-layer (una sola fuente de verdad,
+    // sin duplicar). Efecto: el build queda en dist/server/src/*.js y
+    // dist/client/src/lib/semantic-layer/*.js (ver main/start en package.json).
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,6 +16,16 @@
     "resolveJsonModule": true,
     "declaration": false,
     "sourceMap": true
+  },
+  // El paquete del cliente declara "type": "module", asi que en dev ts-node
+  // trataria sus .ts como ESM y fallaria el require() (ERR_REQUIRE_ESM). Se
+  // fuerza a CommonJS solo para el motor semantico compartido; en el build de
+  // produccion tsc ya los emite como CJS bajo el scope del server.
+  "ts-node": {
+    "transpileOnly": true,
+    "moduleTypes": {
+      "../client/src/**/*.ts": "cjs"
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

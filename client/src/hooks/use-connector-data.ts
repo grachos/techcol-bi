@@ -46,6 +46,9 @@ export function useConnectorData(
 
   return {
     rows: query.data ? toRows(query.data.data) : [],
+    // El servidor recorto por el tope de memoria: hay mas filas en la fuente
+    // que las que llegaron (ver truncateRows en el backend).
+    truncated: query.data?.truncated ?? false,
     error: query.error
       ? query.error instanceof Error
         ? query.error.message

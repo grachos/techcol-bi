@@ -1,52 +1,28 @@
-import { useMemo } from 'react'
+import { useDeferredValue, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TreeGrid, type TreeGridColumn, type TreeGridGroupLevel } from '@/components/tree-grid'
 import type { FilterDefinition } from '@/components/tree-grid/types-filters'
-import { useWidgetData, type Row } from '@/hooks/use-widget-data'
-import { type Aggregation, type Widget } from '@/lib/dashboard-api'
-import {
-  buildAggregationTree,
-  buildRegistryFromModel,
-  evaluateMetricForRows,
-  getConnectorSemanticModel,
-  useModelVersion,
-  type AggregationNode,
-} from '@/lib/semantic-layer'
+import { useTreeAggregation } from '@/hooks/use-tree-aggregation'
+import { type Widget } from '@/lib/dashboard-api'
+import { type TreeNodeDTO } from '@/lib/bi-api'
 import { type ActiveFilters } from '@/lib/widget-filters'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
+
+type Row = Record<string, unknown>
 
 interface TreeGridWidgetProps {
   widget: Widget
   activeFilters: ActiveFilters
 }
 
-function aggregateValues(values: number[], aggregation: Aggregation): number {
-  if (values.length === 0) return 0
-  switch (aggregation) {
-    case 'avg':
-      return values.reduce((sum, v) => sum + v, 0) / values.length
-    case 'count':
-      return values.length
-    case 'min':
-      return Math.min(...values)
-    case 'max':
-      return Math.max(...values)
-    default:
-      return values.reduce((sum, v) => sum + v, 0)
-  }
-}
-
 /**
  * <TreeGrid> arma su propia jerarquia internamente y solo entrega, por
- * columna, las filas crudas de cada grupo visible (`aggregate: (rows) =>
- * ...`) -- no expone a que nodo del arbol corresponden. Para reusar el
- * arbol ya calculado por buildAggregationTree() sin cambiar el contrato del
- * componente generico, se reconstruye el nodo a partir de esas mismas filas:
- * como todas comparten el mismo valor en las dimensiones ya fijadas (las
- * que agrupan ese nivel), el prefijo de dimensiones donde TODAS las filas
- * coinciden identifica exactamente la profundidad y el camino del nodo.
+ * columna, las filas hoja de cada grupo visible (`aggregate: (rows) => ...`).
+ * El arbol pre-agregado viene del SERVIDOR; para el valor de cada grupo se
+ * localiza su nodo por el prefijo de dimensiones donde TODAS las filas del
+ * grupo coinciden -- eso identifica exactamente la profundidad y el camino.
  */
-function findNodeForRows(root: AggregationNode, rows: Row[], dims: string[]): AggregationNode | null {
+function findNodeForRows(root: TreeNodeDTO, rows: Row[], dims: string[]): TreeNodeDTO | null {
   if (rows.length === 0) return null
   let depth = 0
   outer: for (; depth < dims.length; depth++) {
@@ -68,10 +44,6 @@ function findNodeForRows(root: AggregationNode, rows: Row[], dims: string[]): Ag
 
 export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
   const { t } = useTranslation()
-  const { filteredRows, error, isLoading, needsDateFilter } = useWidgetData(
-    widget,
-    activeFilters
-  )
 
   const rawGroupByColumns = useMemo(
     () => (widget.xKey ? widget.xKey.split(',').filter(Boolean) : []),
@@ -81,90 +53,51 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
     () => (widget.yKey ? widget.yKey.split(',').filter(Boolean) : []),
     [widget.yKey]
   )
-  const aggregation = widget.aggregation ?? 'sum'
 
-  // Modelo semantico del conector: dimensiones/medidas base inferidas de las
-  // filas + medidas calculadas que el usuario haya creado (ej. "rentabilidad"
-  // desde el panel de Metricas). Una columna de valor que coincida con una
-  // medida registrada se resuelve via Query Engine (recalculando la formula
-  // por nodo, correcto para ratios); si no, cae al agregado crudo de siempre.
-  const semanticModel = useMemo(
-    () => (widget.connectorId ? getConnectorSemanticModel(widget.connectorId, filteredRows) : null),
-    [widget.connectorId, filteredRows]
-  )
-  const modelVersion = useModelVersion(semanticModel)
-
-  // Si el widget quedo configurado con una columna que ya no existe (ej. se
-  // borro la metrica calculada que se habia elegido para agrupar/valor), se
-  // descarta en vez de intentar agrupar/graficar por un valor inexistente:
-  // eso producia un unico grupo "(vacio)" con todas las filas y podia romper
-  // el render de la tabla.
-  const availableColumnNames = useMemo(() => {
-    const names = new Set(filteredRows[0] ? Object.keys(filteredRows[0]) : [])
-    semanticModel?.listMeasures().forEach((m) => names.add(m.name))
-    return names
-    // modelVersion: el Set de nombres de medidas debe recalcularse cuando se
-    // agrega/edita/borra una metrica, aunque `semanticModel` (el objeto) no
-    // cambie de referencia -- es mutable y se cachea por conector.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredRows, semanticModel, modelVersion])
-  const groupByColumns = useMemo(
-    () => rawGroupByColumns.filter((c) => availableColumnNames.has(c)),
-    [rawGroupByColumns, availableColumnNames]
-  )
-  const valueColumns = useMemo(
-    () => rawValueColumns.filter((c) => availableColumnNames.has(c)),
-    [rawValueColumns, availableColumnNames]
+  // Agregacion en el SERVIDOR: el arbol jerarquico (la parte que congelaba el
+  // navegador con decenas de miles de filas) se calcula alla y llega listo,
+  // junto a las filas hoja proyectadas (solo las columnas necesarias).
+  const { data, error, isLoading, needsDateFilter } = useTreeAggregation(
+    widget,
+    activeFilters,
+    rawGroupByColumns,
+    rawValueColumns
   )
 
-  // Registro de medidas para el motor de arbol jerarquico (simple/leaf/
-  // derived -- ver semantic-layer/tree-engine): agrupa correctamente incluso
-  // formulas que mezclan columnas de distinto grano (ej. "Margen" marcada
-  // como 'leaf'), sin tener que tocar las columnas que ya funcionaban bien.
-  // Igual que arriba, `modelVersion` fuerza a reconstruir el registro
-  // cuando el usuario edita una metrica sin recargar la pagina.
-  const registry = useMemo(
-    () => (semanticModel ? buildRegistryFromModel(semanticModel) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [semanticModel, modelVersion]
-  )
-  const tree = useMemo(
-    () => (registry ? buildAggregationTree(filteredRows, groupByColumns, registry) : null),
-    [registry, filteredRows, groupByColumns]
-  )
+  // Se usan las columnas VALIDADAS que devolvio el servidor (descarta las que
+  // ya no existen), no las crudas del widget.
+  const groupByColumns = data?.groupByColumns ?? []
+  const valueColumns = data?.valueColumns ?? []
+  const leaves = useMemo(() => (data?.leaves ?? []) as Row[], [data])
+  const root = data?.root ?? null
+
+  // TreeGrid arma su propia jerarquia de UI (agrupar/ordenar/filtrar/contar,
+  // ver use-tree-grid.ts) sobre TODAS las filas hoja recibidas -- con
+  // "manifiesto" casi unico, eso son decenas de miles de filas en cada
+  // cambio de filtro. Deferir deja el contenido anterior en pantalla mientras
+  // React arma la version nueva en segundo plano, en vez de bloquear el hilo
+  // y disparar el aviso de "pagina no responde" del navegador.
+  const deferredLeaves = useDeferredValue(leaves)
 
   // Cache de findNodeForRows por grupo visible: TreeGrid vuelve a llamar
-  // `column.aggregate(rows)` en cada render (scroll, hover, filtros de UI
-  // que no tocan los datos), y el array `rows` de cada grupo mantiene la
-  // misma referencia entre esos renders (viene de un useMemo interno de
-  // TreeGrid). Sin esta cache, findNodeForRows() volvia a escanear todas
-  // las filas del grupo -- para cada una de las N columnas de valor -- en
-  // cada frame de scroll, notorio con miles de filas. Se limpia solo (una
-  // WeakMap nueva) cuando el arbol se reconstruye de verdad.
+  // `column.aggregate(rows)` en cada render; el array `rows` de cada grupo
+  // mantiene su referencia entre renders (useMemo interno de TreeGrid). La
+  // WeakMap se renueva sola cuando cambia el arbol.
   const nodeForRowsCache = useMemo(
-    () => new WeakMap<Row[], AggregationNode | null>(),
-    [tree]
+    () => new WeakMap<Row[], TreeNodeDTO | null>(),
+    [root]
   )
-  function findNodeForRowsCached(rows: Row[]): AggregationNode | null {
-    if (!tree) return null
-    const cached = nodeForRowsCache.get(rows)
-    if (cached !== undefined) return cached
-    const node = findNodeForRows(tree, rows, groupByColumns)
-    nodeForRowsCache.set(rows, node)
-    return node
-  }
 
-  // Columna usada para el arbol/indentacion: el ultimo nivel de agrupacion si
-  // hay, si no la primera columna de los datos que no sea una columna de valor.
+  // Columna del arbol/indentacion: el ultimo nivel de agrupacion.
   const treeColumnId = useMemo(() => {
     if (groupByColumns.length > 0) return groupByColumns[groupByColumns.length - 1]
-    const firstRow = filteredRows[0]
+    const firstRow = deferredLeaves[0]
     if (firstRow) {
       const key = Object.keys(firstRow).find((k) => !valueColumns.includes(k))
       if (key) return key
     }
     return valueColumns[0] ?? 'id'
-  }, [groupByColumns, valueColumns, filteredRows])
+  }, [groupByColumns, valueColumns, deferredLeaves])
 
   const columns = useMemo<TreeGridColumn<Row>[]>(() => {
     const cols: TreeGridColumn<Row>[] = [
@@ -178,46 +111,34 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
         pinned: 'left',
       },
     ]
-    for (const col of valueColumns) {
-      if (col === treeColumnId) continue
-      // Una columna de valor que coincide con una medida del modelo semantico
-      // (base o calculada, ej. "rentabilidad") se evalua via Query Engine:
-      // recalcula la formula sobre las filas de cada nodo, en vez de sumar
-      // valores crudos -- unico modo correcto para razones/porcentajes.
-      const measure = semanticModel?.getMeasure(col)
-      // El formato de la medida (ej. "porcentaje, 1 decimal" para un ratio
-      // como Rentabilidad) debe llegar a la columna del grid: sin esto, todo
-      // valor de la medida se mostraba como entero (0 decimales por defecto),
-      // y cualquier ratio entre 0 y 1 se veia redondeado a "0".
-      const formatType = measure?.format?.type
+    for (const meta of data?.columnsMeta ?? []) {
+      if (meta.id === treeColumnId) continue
       cols.push({
-        id: col,
-        header: measure?.label ?? col,
-        accessor: (row) =>
-          measure && semanticModel ? evaluateMetricForRows(semanticModel, [row], col) : row[col],
-        type: formatType === 'percent' || formatType === 'currency' ? formatType : 'number',
-        decimals: measure?.format?.decimals,
-        currency: measure?.format?.currency,
+        id: meta.id,
+        header: meta.header,
+        // Hoja: valor por-fila ya calculado por el servidor. Grupo: valor del
+        // nodo pre-agregado (respeta ratios/derived, que no se pueden sumar).
+        accessor: (row) => row[meta.id],
+        type: meta.type,
+        decimals: meta.decimals,
+        currency: meta.currency,
         align: 'right',
         width: 130,
-        // Agregacion por nodo: si `col` es una medida registrada, se busca
-        // el nodo ya calculado por buildAggregationTree() y se usa su valor
-        // (respeta 'simple'/'leaf'/'derived' -- ver tree-engine). Si no,
-        // cae al agregado crudo de siempre (columna sin metrica asociada).
         aggregate: (rows) => {
-          if (registry?.has(col) && tree) {
-            const node = findNodeForRowsCached(rows)
-            if (node) return node.metrics[col]
+          if (root) {
+            const cached = nodeForRowsCache.get(rows)
+            const node =
+              cached !== undefined ? cached : findNodeForRows(root, rows, groupByColumns)
+            if (cached === undefined) nodeForRowsCache.set(rows, node)
+            if (node) return node.metrics[meta.id] as number
           }
-          return aggregateValues(
-            rows.map((r) => Number(r[col])).filter((n) => !Number.isNaN(n)),
-            aggregation
-          )
+          const nums = rows.map((r) => Number(r[meta.id])).filter((n) => !Number.isNaN(n))
+          return nums.reduce((a, b) => a + b, 0)
         },
       })
     }
     return cols
-  }, [treeColumnId, valueColumns, aggregation, semanticModel, registry, tree, groupByColumns])
+  }, [treeColumnId, data, root, groupByColumns, nodeForRowsCache, valueColumns])
 
   const groupBy = useMemo<TreeGridGroupLevel<Row>[]>(
     () =>
@@ -229,35 +150,26 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
     [groupByColumns, t]
   )
 
-  // Crear automáticamente definiciones de filtros para las columnas de agrupación
-  // Detecta el tipo de dato observando los valores en las filas
+  // Filtros por columna de agrupacion, tipados segun los valores de las hojas.
   const filterDefinitions = useMemo<FilterDefinition[]>(() => {
     if (groupByColumns.length === 0) return []
 
     return groupByColumns.map((col) => {
-      // Detectar tipo de dato examinando los valores
       let filterType: 'select' | 'text' | 'dateRange' | 'numberRange' = 'select'
       let options: Array<{ value: string; label: string }> | undefined
 
-      // Obtener valores únicos para este campo
       const uniqueValues = new Set<string>()
-      filteredRows.forEach((row) => {
+      deferredLeaves.forEach((row) => {
         const val = row[col]
-        if (val != null) {
-          uniqueValues.add(String(val))
-        }
+        if (val != null) uniqueValues.add(String(val))
       })
 
-      // Si hay muchos valores únicos, cambiar a filtro de texto
       if (uniqueValues.size > 20) {
         filterType = 'text'
       } else if (uniqueValues.size > 0) {
         options = Array.from(uniqueValues)
           .sort()
-          .map((val) => ({
-            value: val,
-            label: val,
-          }))
+          .map((val) => ({ value: val, label: val }))
       }
 
       return {
@@ -268,7 +180,7 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
         placeholder: `Filtrar por ${col}...`,
       }
     })
-  }, [groupByColumns, filteredRows, t])
+  }, [groupByColumns, deferredLeaves])
 
   if (isLoading) return <WidgetLoading />
   if (needsDateFilter) {
@@ -284,15 +196,15 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
       </p>
     )
   }
-  if (filteredRows.length === 0) {
+  if (leaves.length === 0) {
     return <WidgetEmpty text={t('No rows match the active filters.')} />
   }
 
   return (
     <TreeGrid
-      key={`${widget.id}:${widget.xKey ?? ''}:${widget.yKey ?? ''}:${aggregation}`}
+      key={`${widget.id}:${widget.xKey ?? ''}:${widget.yKey ?? ''}`}
       columns={columns}
-      data={filteredRows}
+      data={deferredLeaves}
       groupBy={groupBy}
       filterDefinitions={filterDefinitions}
       className='rounded-none border-0'

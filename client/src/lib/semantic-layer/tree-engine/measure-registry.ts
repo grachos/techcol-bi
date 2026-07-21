@@ -12,6 +12,13 @@ import type { MeasureDef, MeasureKind } from './types'
 export class MeasureRegistry {
   private readonly measures = new Map<string, MeasureDef>()
   private readonly engine: ExpressionEngine
+  // buildAggregationTree llama evaluationOrder() en CADA nodo del arbol (miles
+  // a decenas de miles en un dataset ancho como Silog); sin cache, cada
+  // llamada rehace el sort topologico completo (Map/Set/closures nuevos) --
+  // trabajo identico repetido, porque el registro no cambia durante la
+  // construccion de un arbol. El cache se invalida solo si se registra algo
+  // nuevo (no deberia pasar a mitad de un build, pero es gratis ser correcto).
+  private orderCache: MeasureDef[] | null = null
 
   constructor(engine?: ExpressionEngine) {
     this.engine = engine ?? new ExpressionEngine()
@@ -24,6 +31,7 @@ export class MeasureRegistry {
   register(def: MeasureDef) {
     this.validate(def)
     this.measures.set(def.name, def)
+    this.orderCache = null
   }
 
   get(name: string): MeasureDef | undefined {
@@ -113,6 +121,8 @@ export class MeasureRegistry {
    * puede depender de cualquiera, incluida otra derived.
    */
   evaluationOrder(): MeasureDef[] {
+    if (this.orderCache) return this.orderCache
+
     const kindRank: Record<MeasureKind, number> = { simple: 0, leaf: 1, derived: 2 }
     const byName = new Map(this.all().map((m) => [m.name, m]))
     const visited = new Set<string>()
@@ -133,6 +143,7 @@ export class MeasureRegistry {
     for (const def of [...this.all()].sort((a, b) => kindRank[a.kind] - kindRank[b.kind])) {
       visit(def)
     }
+    this.orderCache = order
     return order
   }
 }

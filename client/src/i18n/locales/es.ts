@@ -776,6 +776,8 @@ export const es: Record<string, string> = {
     'Se envían a la API como ?clave=valor. El valor puede ser fijo, o tomar el filtro de fechas del dashboard usando las plantillas del ejemplo. Los parámetros sin valor se omiten de la URL.',
   '•••• saved — type to replace': '•••• guardado — escribe para reemplazar',
   'Filters column "{{column}}"': 'Filtra la columna "{{column}}"',
+  'Too many rows — showing a partial result. Narrow the range.':
+    'Demasiadas filas — se muestra un resultado parcial. Reduce el rango.',
   All: 'Todos',
   "Could not detect this connector's columns; type the column name manually.":
     'No se pudieron detectar las columnas de este conector; escribe el nombre de la columna manualmente.',

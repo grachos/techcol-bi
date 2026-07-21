@@ -1,48 +1,10 @@
+import { registerInferredFields } from './infer-base-model'
 import { evaluateMetricValueForRows } from './query-engine'
 import { LocalStorageMetricsRepository } from './repository'
 import { SemanticModel } from './semantic-model'
 import type { Row } from './types'
 
 const modelCache = new Map<number, SemanticModel>()
-
-function humanize(field: string): string {
-  return field
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function looksNumeric(value: unknown): boolean {
-  if (typeof value === 'number') return Number.isFinite(value)
-  if (typeof value !== 'string') return false
-  const trimmed = value.trim()
-  return trimmed !== '' && /^-?\d+(\.\d+)?$/.test(trimmed)
-}
-
-// Campos numericos que en realidad son codigos/identificadores (no medidas
-// sumables): se registran igual como dimension, no como medida SUM.
-const ID_LIKE_PATTERN = /(^|_)(id|codigo|documento|nit)$/i
-
-function inferFields(rows: Row[], sampleSize = 50) {
-  const sample = rows.slice(0, sampleSize)
-  const fields = sample.length > 0 ? Object.keys(sample[0]) : []
-  const dimensions: string[] = []
-  const measures: string[] = []
-
-  for (const field of fields) {
-    const values = sample
-      .map((r) => r[field])
-      .filter((v) => v !== null && v !== undefined && v !== '')
-    if (values.length === 0) continue
-
-    const numericRatio = values.filter(looksNumeric).length / values.length
-    if (numericRatio >= 0.9 && !ID_LIKE_PATTERN.test(field)) {
-      measures.push(field)
-    } else {
-      dimensions.push(field)
-    }
-  }
-  return { dimensions, measures }
-}
 
 /**
  * Modelo semantico inferido a partir de una muestra de filas de un conector:
@@ -64,25 +26,7 @@ export function getConnectorSemanticModel(connectorId: number, rows: Row[]): Sem
     repository: new LocalStorageMetricsRepository(`semantic-connector-${connectorId}-metrics`),
   })
 
-  const { dimensions, measures } = inferFields(rows)
-
-  for (const field of dimensions) {
-    model.registerDimension({ name: field, label: humanize(field), field })
-  }
-  for (const field of measures) {
-    model.registerMeasure({
-      name: field,
-      label: humanize(field),
-      expression: `SUM(${field})`,
-      format: { type: 'number', decimals: 0 },
-    })
-  }
-  model.registerMeasure({
-    name: 'registros',
-    label: 'Registros',
-    expression: 'COUNT()',
-    format: { type: 'number', decimals: 0 },
-  })
+  registerInferredFields(model, rows)
 
   modelCache.set(connectorId, model)
   return model

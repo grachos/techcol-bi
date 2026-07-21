@@ -1,8 +1,10 @@
 import { applyFormat } from '../formatting'
 import type { Row } from '../types'
-import { createEvaluator } from './evaluators'
+import { createEvaluator, type MeasureEvaluator } from './evaluators'
 import type { MeasureRegistry } from './measure-registry'
-import type { AggregationNode } from './types'
+import type { AggregationNode, MeasureDef } from './types'
+
+type OrderedEvaluators = readonly (readonly [MeasureDef, MeasureEvaluator])[]
 
 function partitionBy(rows: Row[], dimension: string): Map<string, Row[]> {
   const buckets = new Map<string, Row[]>()
@@ -29,10 +31,14 @@ function makeNode(rows: Row[], dimensionValues: Record<string, unknown>, depth: 
   }
 }
 
-function computeMetrics(node: AggregationNode, registry: MeasureRegistry, phase: 'leaf' | 'parent') {
+function computeMetrics(
+  node: AggregationNode,
+  registry: MeasureRegistry,
+  evaluators: OrderedEvaluators,
+  phase: 'leaf' | 'parent'
+) {
   const engine = registry.getExpressionEngine()
-  for (const def of registry.evaluationOrder()) {
-    const evaluator = createEvaluator(def)
+  for (const [def, evaluator] of evaluators) {
     const value = phase === 'leaf'
       ? evaluator.evaluateAtLeaf({ node, registry, engine })
       : evaluator.combineAtParent({ node, registry, engine })
@@ -41,10 +47,16 @@ function computeMetrics(node: AggregationNode, registry: MeasureRegistry, phase:
   }
 }
 
-function recurse(node: AggregationNode, groupByPath: string[], level: number, registry: MeasureRegistry) {
+function recurse(
+  node: AggregationNode,
+  groupByPath: string[],
+  level: number,
+  registry: MeasureRegistry,
+  evaluators: OrderedEvaluators
+) {
   if (level === groupByPath.length) {
     node.isLeaf = true
-    computeMetrics(node, registry, 'leaf')
+    computeMetrics(node, registry, evaluators, 'leaf')
     return
   }
 
@@ -58,13 +70,13 @@ function recurse(node: AggregationNode, groupByPath: string[], level: number, re
       `${node.key}␟${value}`
     )
     node.children.push(child)
-    recurse(child, groupByPath, level + 1, registry)
+    recurse(child, groupByPath, level + 1, registry, evaluators)
   }
 
   // Las filas se conservan en todos los nodos (no solo en la hoja): las
   // medidas 'derived' pueden usar columnas crudas dentro de SUM/MIN/etc. en
   // cualquier nivel, igual que el comportamiento historico del motor plano.
-  computeMetrics(node, registry, 'parent')
+  computeMetrics(node, registry, evaluators, 'parent')
 }
 
 /**
@@ -72,14 +84,21 @@ function recurse(node: AggregationNode, groupByPath: string[], level: number, re
  * `groupByPath` (una dimension por nivel) y calcula cada medida del
  * `registry` en cada nodo, respetando su `kind` (simple/leaf/derived) --
  * ver evaluators.ts para el detalle de cada estrategia.
+ *
+ * El orden de evaluacion y los evaluadores (sin estado propio, solo envuelven
+ * un MeasureDef) se calculan UNA vez aqui, no en cada nodo: con miles de
+ * nodos (grano fino, ej. un manifiesto por hoja) recrearlos por nodo era
+ * puro trabajo repetido -- el cuello de botella real de un arbol grande.
  */
 export function buildAggregationTree(rows: Row[], groupByPath: string[], registry: MeasureRegistry): AggregationNode {
+  const evaluators: OrderedEvaluators = registry.evaluationOrder().map((def) => [def, createEvaluator(def)] as const)
+
   const root = makeNode(rows, {}, 0, '__root__')
   if (groupByPath.length === 0) {
     root.isLeaf = true
-    computeMetrics(root, registry, 'leaf')
+    computeMetrics(root, registry, evaluators, 'leaf')
     return root
   }
-  recurse(root, groupByPath, 0, registry)
+  recurse(root, groupByPath, 0, registry, evaluators)
   return root
 }

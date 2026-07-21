@@ -2,11 +2,10 @@ import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/auth";
-import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { truncateRows } from "../utils/security";
 import { parseRuntimeParams } from "../utils/runtime-params";
-import { getCachedConnectorData } from "../services/connector-cache";
-import { ConnectorFactory } from "../connectors/ConnectorFactory";
+import { aggregateStat, aggregateTree } from "../services/aggregation-service";
+import { getRowsForAggregation, getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorType } from "../connectors/BaseConnector";
 
 const router = Router();
@@ -195,7 +194,7 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const [rows]: any = await pool.query(
-        `SELECT c.id, c.type, c.config
+        `SELECT c.id, c.type, c.config, c.date_column
          FROM dashboard_shares s
          JOIN dashboard_widgets w
            ON w.dashboard_id = s.dashboard_id AND w.connector_id = ?
@@ -210,18 +209,55 @@ router.get(
       }
 
       const params = parseRuntimeParams(req.query);
-      const data = await getCachedConnectorData(connector.id, params, async () => {
-        const raw: string | EncryptedPayload = connector.config;
-        const payload = typeof raw === "string" ? JSON.parse(raw) : raw;
-        const config = decryptConfig(payload);
-        const instance = ConnectorFactory.create(
-          connector.type as ConnectorType,
-          config
-        );
-        return instance.fetchData(params);
-      });
+      const { rows: sourceRows } = await getRawRowsForConnector(
+        { id: connector.id, type: connector.type as ConnectorType, config: connector.config, date_column: connector.date_column },
+        params
+      );
 
-      res.json({ id: connector.id, type: connector.type, data: truncateRows(data) });
+      const { data: rowsOut, truncated } = truncateRows(sourceRows);
+      res.json({ id: connector.id, type: connector.type, data: rowsOut, truncated });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Agregacion server-side para la vista compartida (equivalente publico de
+// POST /connectors/:id/aggregate).
+router.post(
+  "/share/:token/connectors/:connectorId/aggregate",
+  async (req: Request, res: Response) => {
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT c.id, c.type, c.config
+         FROM dashboard_shares s
+         JOIN dashboard_widgets w
+           ON w.dashboard_id = s.dashboard_id AND w.connector_id = ?
+         JOIN connectors c ON c.id = w.connector_id
+         WHERE s.share_token = ?
+         LIMIT 1`,
+        [req.params.connectorId, req.params.token]
+      );
+      const connector = rows[0];
+      if (!connector) {
+        return res.status(404).json({ error: "Conector no encontrado" });
+      }
+
+      const params = parseRuntimeParams(req.body?.params);
+      const filters = req.body?.activeFilters ?? {};
+      const calc = req.body?.calculatedMeasures ?? [];
+      const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
+      const query = req.body?.query ?? {};
+      const { rows: rawRows } = await getRowsForAggregation(
+        { id: connector.id, type: connector.type as ConnectorType, config: connector.config },
+        params,
+        filters,
+        { mode, query, calculatedMeasures: calc }
+      );
+
+      const result =
+        mode === "tree" ? aggregateTree(rawRows, calc, filters, query) : aggregateStat(rawRows, calc, filters, query);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

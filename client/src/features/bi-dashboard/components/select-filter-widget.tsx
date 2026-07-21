@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
 import { useWidgetData } from '@/hooks/use-widget-data'
@@ -47,6 +47,25 @@ export function SelectFilterWidget({
     })
     return Array.from(values).sort()
   }, [rows, widget.filterColumn])
+
+  // Una seleccion persistida (guardada en el servidor como "ultima consulta")
+  // puede quedar obsoleta: si el valor ya no aparece entre las filas actuales
+  // (metrica editada, formato de fecha corregido, dato borrado en la fuente),
+  // el filtro nunca volveria a coincidir con ninguna fila -- para SIEMPRE,
+  // aunque se amplie el rango de fechas -- sin mostrar ningun error, porque
+  // desde la perspectiva del widget simplemente "no hay filas". Se descartan
+  // los valores obsoletos en cuanto se detectan, en vez de dejar un filtro
+  // fantasma imposible de diagnosticar desde la UI.
+  useEffect(() => {
+    if (isLoading || needsDateFilter || error || options.length === 0) return
+    const stale = Array.from(selectedValues).filter((v) => !options.includes(v))
+    if (stale.length === 0) return
+    const cleaned = new Set(selectedValues)
+    stale.forEach((v) => cleaned.delete(v))
+    setSelectedValues(cleaned)
+    updateFilter(cleaned)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options])
 
   const handleToggleValue = (value: string) => {
     const newSelected = new Set(selectedValues)

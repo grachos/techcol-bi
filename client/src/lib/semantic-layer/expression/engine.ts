@@ -71,6 +71,18 @@ export class ExpressionEngine {
   }
 
   /**
+   * TODOS los identificadores de una formula, incluidos los que estan dentro
+   * de una funcion de agregacion (a diferencia de getIdentifiers, que los
+   * excluye porque alli son columnas crudas, no dependencias entre medidas).
+   * Sirve para saber que columnas/medidas toca una formula sin importar el
+   * contexto -- ej. para proyectar solo las columnas necesarias en una
+   * consulta en vez de traer la fuente completa.
+   */
+  getAllIdentifiers(expression: string): string[] {
+    return Array.from(extractIdentifiers(this.parse(expression)))
+  }
+
+  /**
    * true si la formula NO usa ninguna funcion de agregacion (SUM, AVG, etc.):
    * puede evaluarse fila por fila (ej. CONCAT(origen, destino)), a diferencia
    * de una medida como SUM(revenue) que solo tiene sentido sobre un grupo.

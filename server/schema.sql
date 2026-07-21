@@ -154,6 +154,32 @@ CREATE TABLE IF NOT EXISTS dashboard_shares (
   INDEX idx_shares_dashboard (dashboard_id)
 );
 
+-- Sincronizacion del conector hacia el motor analitico (DuckDB, server/data/):
+-- date_column identifica la columna de fecha para sync incremental (borrar
+-- ventana + reinsertar); si es NULL, cada sync trae la fuente completa.
+-- sync_window_days = ventana de relectura hacia atras del watermark, para
+-- capturar filas que cambiaron de estado despues de creadas (ej. Silog: un
+-- manifiesto pasa a "CUMPLIDO" dias despues de su fecha de creacion).
+-- sync_interval_minutes = NULL significa solo sync manual (boton "Actualizar").
+ALTER TABLE connectors
+  ADD COLUMN IF NOT EXISTS date_column VARCHAR(128) NULL AFTER config;
+ALTER TABLE connectors
+  ADD COLUMN IF NOT EXISTS sync_window_days INT NOT NULL DEFAULT 30 AFTER date_column;
+ALTER TABLE connectors
+  ADD COLUMN IF NOT EXISTS sync_interval_minutes INT NULL AFTER sync_window_days;
+
+-- Estado de la ultima sincronizacion hacia DuckDB, por conector.
+CREATE TABLE IF NOT EXISTS sync_state (
+  connector_id INT PRIMARY KEY,
+  status ENUM('idle', 'syncing', 'error') NOT NULL DEFAULT 'idle',
+  last_sync_at TIMESTAMP NULL,
+  last_watermark VARCHAR(10) NULL, -- YYYY-MM-DD del dato mas reciente sincronizado
+  row_count INT NULL,
+  last_error TEXT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (connector_id) REFERENCES connectors(id) ON DELETE CASCADE
+);
+
 -- Usuario semilla para desarrollo
 INSERT INTO users (email, name)
 SELECT 'demo@bi-techcol.local', 'Usuario Demo'
