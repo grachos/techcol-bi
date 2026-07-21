@@ -416,20 +416,20 @@ function FunctionsReference() {
     {
       name: 'MONTH',
       category: 'Fecha',
-      description: 'Extrae el número de mes (1-12) de una fecha',
-      example: 'MONTH(fecha_venta) → 5',
+      description: 'Extrae el mes de una fecha. Acepta formato opcional (MM=mes con 0, M=mes sin 0, nombre_mes).',
+      example: 'MONTH(fecha_venta) → 5 | MONTH(fecha_venta, "MM") → 05 | MONTH(fecha_venta, "MMMM") → Mayo',
     },
     {
       name: 'YEAR',
       category: 'Fecha',
-      description: 'Extrae el año de una fecha',
-      example: 'YEAR(fecha_venta) → 2024',
+      description: 'Extrae el año de una fecha. Acepta formato opcional (YYYY=4 dígitos, YY=2 dígitos).',
+      example: 'YEAR(fecha_venta) → 2024 | YEAR(fecha_venta, "YYYY") → 2024 | YEAR(fecha_venta, "YY") → 24',
     },
     {
       name: 'DAY',
       category: 'Fecha',
-      description: 'Extrae el día del mes (1-31)',
-      example: 'DAY(fecha_venta) → 15',
+      description: 'Extrae el día del mes. Acepta formato opcional (DD=día con 0, D=día sin 0).',
+      example: 'DAY(fecha_venta) → 15 | DAY(fecha_venta, "DD") → 05 | DAY(fecha_venta, "D") → 5',
     },
     {
       name: 'SUM',
@@ -496,12 +496,6 @@ function FunctionsReference() {
       category: 'Texto',
       description: 'Une dos o más valores en un solo texto',
       example: 'CONCAT(origen, " - ", destino) → "Bogotá - Cali"',
-    },
-    {
-      name: 'YEAR',
-      category: 'Fecha',
-      description: 'Extrae el año (YYYY) de una fecha',
-      example: 'YEAR(fecha_venta) → 2024',
     },
     {
       name: 'DISTINCTCOUNT',
