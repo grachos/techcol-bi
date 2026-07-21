@@ -40,8 +40,13 @@ interface ComboWidgetProps {
 
 export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   const { t } = useTranslation()
+  // Proyeccion solo si xKey/yKey estan explicitos: la auto-deteccion de abajo
+  // (cuando el widget no los tiene configurados) necesita ver TODAS las
+  // columnas para elegir la primera textual/numerica -- proyectar antes
+  // rompería ese fallback.
+  const columns = widget.xKey && widget.yKey ? [widget.xKey, widget.yKey] : undefined
   const { rows, filteredRows, error, isLoading, needsDateFilter } =
-    useWidgetData(widget, activeFilters)
+    useWidgetData(widget, activeFilters, columns)
 
   const { x: xKey, bars, line } = useMemo(
     () => detectSeries(filteredRows, widget.xKey, widget.yKey),

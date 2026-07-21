@@ -113,6 +113,7 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
     ]
     for (const meta of data?.columnsMeta ?? []) {
       if (meta.id === treeColumnId) continue
+      const isText = meta.type === 'text'
       cols.push({
         id: meta.id,
         header: meta.header,
@@ -122,7 +123,7 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
         type: meta.type,
         decimals: meta.decimals,
         currency: meta.currency,
-        align: 'right',
+        align: isText ? 'left' : 'right',
         width: 130,
         aggregate: (rows) => {
           if (root) {
@@ -130,8 +131,15 @@ export function TreeGridWidget({ widget, activeFilters }: TreeGridWidgetProps) {
             const node =
               cached !== undefined ? cached : findNodeForRows(root, rows, groupByColumns)
             if (cached === undefined) nodeForRowsCache.set(rows, node)
-            if (node) return node.metrics[meta.id] as number
+            // Valor real del nodo, sin forzar a numero: una medida de texto
+            // (ej. "Ruta") es tan valida como una numerica -- formatCellValue
+            // ya sabe mostrar cualquier tipo con seguridad.
+            if (node) return node.metrics[meta.id]
           }
+          // Fallback sin arbol del servidor (solo mientras carga): sumar
+          // como numero no tiene sentido para una columna de texto, se
+          // muestra el primer valor crudo en su lugar.
+          if (isText) return rows[0]?.[meta.id]
           const nums = rows.map((r) => Number(r[meta.id])).filter((n) => !Number.isNaN(n))
           return nums.reduce((a, b) => a + b, 0)
         },

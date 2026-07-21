@@ -76,10 +76,19 @@ export async function getRowsForAggregation(
  * viajaban a la API en vivo) se traducen a un WHERE sobre `date_column` si el
  * conector lo tiene configurado y ya esta sincronizado -- si no, mismo
  * fallback de siempre.
+ *
+ * `wantedColumns`: opcional -- si el widget que pide los datos solo necesita
+ * una o dos columnas (ej. un filtro de seleccion), las declara y se proyecta
+ * en SQL en vez de traer las 68 de Silog. Si se omite, sigue siendo SELECT *
+ * (varios widgets del mismo conector comparten un solo fetch via React Query
+ * cuando piden exactamente los mismos parametros; proyectar distinto por
+ * widget fragmentaria ese cache compartido, asi que solo tiene sentido
+ * cuando el widget ya es el unico consumidor de esa combinacion).
  */
 export async function getRawRowsForConnector(
   connector: ConnectorConfigRow,
-  params: RuntimeParams
+  params: RuntimeParams,
+  wantedColumns?: string[]
 ): Promise<SourceRowsResult> {
   if (await tableExists(connector.id)) {
     const columns = await getFactColumns(connector.id);
@@ -94,7 +103,8 @@ export async function getRawRowsForConnector(
           }
         : {};
     const { sql, values } = buildWhereClause(filters, columns);
-    const rows = await queryFactRows(connector.id, sql, values);
+    const projected = wantedColumns?.filter((c) => columns.has(c)) ?? null;
+    const rows = await queryFactRows(connector.id, sql, values, projected);
     return { rows: rows as Row[], source: "duckdb" };
   }
 

@@ -7,6 +7,21 @@
  * No reemplaza MariaDB: los datos operativos de la app (usuarios, conectores,
  * dashboards) siguen alli. Esto es solo el almacen de las FILAS que las
  * fuentes externas producen.
+ *
+ * DESPLIEGUE (verificado 2026-07): @duckdb/node-bindings trae binarios
+ * prebuilt via optionalDependencies (linux-x64, linux-x64-musl, linux-arm64,
+ * linux-arm64-musl, darwin-x64/arm64, win32-x64/arm64) con seleccion
+ * automatica por `detect-libc` -- no requiere compilador ni toolchain, solo
+ * bajar el paquete correcto en `npm install`. El VPS de Hostinger (Ubuntu/
+ * Debian/AlmaLinux/etc. sobre AMD64, root completo) encaja de lleno en
+ * linux-x64: alta confianza.
+ * El plan "Node.js Web App" (Business/Cloud, hosting administrado) NO tiene
+ * su SO/arquitectura/soporte de addons nativos documentado publicamente --
+ * sin poder probarlo ahi, no se puede dar por seguro. Ademas, aunque el
+ * binario cargara, esta arquitectura (archivo local persistente + scheduler
+ * en segundo plano via setInterval, ver sync-service.ts) no encaja bien con
+ * una plataforma administrada pensada para procesos sin estado -- el VPS es
+ * el objetivo de despliegue correcto para este proyecto, no solo por DuckDB.
  */
 import { DuckDBInstance, type DuckDBConnection } from "@duckdb/node-api";
 import fs from "fs";

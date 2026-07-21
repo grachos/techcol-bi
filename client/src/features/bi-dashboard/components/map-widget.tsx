@@ -46,9 +46,13 @@ interface MapWidgetProps {
 
 export function MapWidget({ widget, activeFilters }: MapWidgetProps) {
   const { t } = useTranslation()
+  // Igual que ComboWidget: solo proyecta si ambas columnas ya estan
+  // configuradas, para no romper la auto-deteccion de detectKeys().
+  const columns = widget.xKey && widget.yKey ? [widget.xKey, widget.yKey] : undefined
   const { filteredRows, error, isLoading, needsDateFilter } = useWidgetData(
     widget,
-    activeFilters
+    activeFilters,
+    columns
   )
 
   const { region: regionKey, value: valueKey } = useMemo(

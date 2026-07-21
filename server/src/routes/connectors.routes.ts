@@ -2,13 +2,13 @@ import { Router, Request, Response } from "express";
 import { pool } from "../db";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
-import { parseRuntimeParams } from "../utils/runtime-params";
+import { parseRuntimeParams, parseColumnsParam } from "../utils/runtime-params";
 import { buildResponsePreview } from "../utils/response-preview";
 import { findTableCandidates } from "../utils/table-finder";
 import { invalidateConnectorCache } from "../services/connector-cache";
-import { aggregateStat, aggregateTree } from "../services/aggregation-service";
+import { runAggregateCached } from "../services/cached-aggregate";
 import { runSync } from "../services/sync-service";
-import { getRowsForAggregation, getRawRowsForConnector } from "../services/rows-source";
+import { getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
 
@@ -32,7 +32,8 @@ function parseStoredConfig(raw: string | EncryptedPayload): EncryptedPayload {
 router.get("/", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, name, type, created_at FROM connectors WHERE user_id = ? ORDER BY created_at DESC",
+      `SELECT id, name, type, date_column, sync_window_days, sync_interval_minutes, created_at
+       FROM connectors WHERE user_id = ? ORDER BY created_at DESC`,
       [req.userId]
     );
     res.json(rows);
@@ -211,7 +212,8 @@ router.get("/:id/data", async (req: Request, res: Response) => {
     }
 
     const params = parseRuntimeParams(req.query);
-    const { rows: sourceRows } = await getRawRowsForConnector(connector, params);
+    const columns = parseColumnsParam(req.query);
+    const { rows: sourceRows } = await getRawRowsForConnector(connector, params, columns);
 
     const { data: rowsOut, truncated } = truncateRows(sourceRows);
     res.json({
@@ -311,14 +313,7 @@ router.post("/:id/aggregate", async (req: Request, res: Response) => {
     const calc = req.body?.calculatedMeasures ?? [];
     const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
     const query = req.body?.query ?? {};
-    const { rows: rawRows } = await getRowsForAggregation(connector, params, filters, {
-      mode,
-      query,
-      calculatedMeasures: calc,
-    });
-
-    const result =
-      mode === "tree" ? aggregateTree(rawRows, calc, filters, query) : aggregateStat(rawRows, calc, filters, query);
+    const result = await runAggregateCached(connector, params, filters, mode, query, calc);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

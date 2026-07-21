@@ -50,13 +50,17 @@ export function DateFilterWidget({ widget, activeFilters, onChange }: DateFilter
   const [range, setRange] = useState<DateRange | undefined>(restored)
   const [applied, setApplied] = useState<DateRange | undefined>(restored)
 
-  // Reusa el mismo cache de React Query que ya piden los demas widgets del
-  // conector (misma connectorId+params): no dispara una llamada extra a la
-  // fuente, solo lee el flag `truncated` que el servidor marca cuando la
-  // respuesta supero el tope de memoria (MAX_ROWS) y vino recortada.
+  // Solo lee el flag `truncated` (nunca el contenido de las filas), asi que
+  // pide la propia columna de fecha nada mas -- angosto y siempre seguro,
+  // aunque eso signifique dejar de compartir el fetch con otros widgets del
+  // mismo conector que sí piden todas las columnas.
   const params =
     widget.connectorType === 'rest_api' ? filtersToParams(activeFilters ?? {}) : {}
-  const { truncated } = useConnectorData(widget.connectorId, params)
+  const { truncated } = useConnectorData(
+    widget.connectorId,
+    params,
+    column ? [column] : undefined
+  )
 
   const handleApply = () => {
     if (!column) return

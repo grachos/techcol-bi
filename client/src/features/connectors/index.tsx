@@ -39,6 +39,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { EditConnectorDialog } from './edit-connector-dialog'
 import { TestResultDialog } from './test-result-dialog'
 import { PreviewQueryDialog } from './preview-query-dialog'
+import { SyncDialog } from './sync-dialog'
 
 type FormState = {
   name: string
@@ -234,6 +235,8 @@ export function Connectors() {
   const [sqlDialogOpen, setSqlDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingConnector, setEditingConnector] = useState<(Connector & { config: Record<string, unknown> }) | null>(null)
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false)
+  const [syncingConnector, setSyncingConnector] = useState<Connector | null>(null)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
   const [testResult, setTestResult] = useState<{
     id: number
@@ -974,6 +977,17 @@ export function Connectors() {
                       {t('Test')}
                     </Button>
                     <Button
+                      variant='outline'
+                      size='sm'
+                      disabled={busyId === c.id}
+                      onClick={() => {
+                        setSyncingConnector(c)
+                        setSyncDialogOpen(true)
+                      }}
+                    >
+                      {t('Sync')}
+                    </Button>
+                    <Button
                       variant='destructive'
                       size='sm'
                       disabled={busyId === c.id}
@@ -1029,6 +1043,13 @@ export function Connectors() {
           if (!open) setTestResult(null)
         }}
         onPickTable={handlePickTable}
+      />
+
+      <SyncDialog
+        connector={syncingConnector}
+        open={syncDialogOpen}
+        onOpenChange={setSyncDialogOpen}
+        onSaved={load}
       />
     </>
   )

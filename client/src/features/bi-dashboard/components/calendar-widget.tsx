@@ -13,9 +13,11 @@ interface CalendarWidgetProps {
 export function CalendarWidget({ widget, activeFilters }: CalendarWidgetProps) {
   // useWidgetData ya envia los parametros de fecha al origen cuando aplica
   // (conectores REST parametrizados) y aplica applyFilters() sobre el resultado.
+  // Solo pide xKey: es la unica columna que este widget lee.
   const { filteredRows } = useWidgetData(
     { ...widget, connectorId: widget.xKey ? widget.connectorId : null },
-    activeFilters
+    activeFilters,
+    widget.xKey ? [widget.xKey] : undefined
   )
   const [month, setMonth] = useState<Date>(new Date())
 

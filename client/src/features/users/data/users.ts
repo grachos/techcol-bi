@@ -1,34 +1,62 @@
-import { faker } from '@faker-js/faker'
-
-// Set a fixed seed for consistent data generation
-faker.seed(67890)
-
-export const users = Array.from({ length: 50 }, (_, i) => {
-  const firstName = faker.person.firstName()
-  const lastName = faker.person.lastName()
-  const role = i === 0 ? 'admin' : faker.helpers.arrayElement(['admin', 'custom'])
-
-  return {
-    id: faker.string.uuid(),
-    firstName,
-    lastName,
-    username: faker.internet
-      .username({ firstName, lastName })
-      .toLocaleLowerCase(),
-    email: faker.internet.email({ firstName }).toLocaleLowerCase(),
-    phoneNumber: faker.phone.number({ style: 'international' }),
-    status: faker.helpers.arrayElement([
-      'active',
-      'inactive',
-      'invited',
-      'suspended',
-    ]),
-    role,
-    permissions: role === 'custom' ? {
-      dashboardIds: [1, 2, 3],
-      pageNames: ['dashboard', 'reports'],
-    } : undefined,
-    createdAt: faker.date.past(),
-    updatedAt: faker.date.recent(),
-  }
-})
+export const users = [
+  {
+    id: '1',
+    firstName: 'Demo',
+    lastName: 'Admin',
+    username: 'demo.admin',
+    email: 'demo@techcol.com',
+    phoneNumber: '+57 300 123 4567',
+    status: 'active' as const,
+    role: 'admin' as const,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-07-20'),
+  },
+  {
+    id: '2',
+    firstName: 'Carlos',
+    lastName: 'García',
+    username: 'carlos.garcia',
+    email: 'carlos@techcol.com',
+    phoneNumber: '+57 301 234 5678',
+    status: 'active' as const,
+    role: 'custom' as const,
+    permissions: {
+      dashboardIds: [1, 2],
+      pageNames: ['dashboard', 'bi', 'reports'],
+    },
+    createdAt: new Date('2026-02-15'),
+    updatedAt: new Date('2026-07-15'),
+  },
+  {
+    id: '3',
+    firstName: 'Ana',
+    lastName: 'Martínez',
+    username: 'ana.martinez',
+    email: 'ana@techcol.com',
+    phoneNumber: '+57 302 345 6789',
+    status: 'active' as const,
+    role: 'custom' as const,
+    permissions: {
+      dashboardIds: [2, 3],
+      pageNames: ['dashboard', 'connectors'],
+    },
+    createdAt: new Date('2026-03-10'),
+    updatedAt: new Date('2026-07-18'),
+  },
+  {
+    id: '4',
+    firstName: 'Juan',
+    lastName: 'López',
+    username: 'juan.lopez',
+    email: 'juan@techcol.com',
+    phoneNumber: '+57 303 456 7890',
+    status: 'inactive' as const,
+    role: 'custom' as const,
+    permissions: {
+      dashboardIds: [1],
+      pageNames: ['dashboard'],
+    },
+    createdAt: new Date('2026-04-05'),
+    updatedAt: new Date('2026-06-20'),
+  },
+]

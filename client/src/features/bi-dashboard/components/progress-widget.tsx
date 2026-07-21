@@ -36,8 +36,11 @@ interface ProgressWidgetProps {
 
 export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
   const { t } = useTranslation()
+  // Igual que ComboWidget/MapWidget: solo proyecta si ambas columnas ya estan
+  // configuradas, para no romper la auto-deteccion de detectKeys().
+  const columns = widget.xKey && widget.yKey ? [widget.xKey, widget.yKey] : undefined
   const { rows, filteredRows, error, isLoading, needsDateFilter } =
-    useWidgetData(widget, activeFilters)
+    useWidgetData(widget, activeFilters, columns)
 
   const { x: labelKey, y: valueKey } = useMemo(
     () => detectKeys(filteredRows, widget.xKey, widget.yKey),

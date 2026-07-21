@@ -5,8 +5,12 @@
  * al navegador y agregar alli, el servidor -- que ya tiene las filas en cache --
  * agrega y devuelve solo el resultado (unos KB).
  *
- * Fase 1: solo widgets 'stat'. La tabla dinamica (tree_grid) y el resto migran
- * despues (ver plan). Los widgets no migrados siguen bajando filas crudas.
+ * Fase 1: solo widgets 'stat'. Fase 2 sumo 'tree_grid'. combo/progress/
+ * map/calendar/chart siguen bajando filas crudas via /data a proposito: no
+ * agregan, muestran una fila cruda por punto (ver consigna completa en
+ * widget-card.tsx, arriba del switch por `kind`) -- si algun kind nuevo SI
+ * necesita sumar/agrupar/promediar, entra AQUI, no como fetch+calculo en
+ * el cliente.
  */
 import { SemanticModel } from "../../../client/src/lib/semantic-layer/semantic-model";
 import { InMemoryMetricsRepository } from "../../../client/src/lib/semantic-layer/repository";
@@ -16,7 +20,6 @@ import {
   buildRegistryFromModel,
 } from "../../../client/src/lib/semantic-layer/tree-engine";
 import {
-  evaluateMetricForRows,
   evaluateMetricValueForRows,
 } from "../../../client/src/lib/semantic-layer/query-engine";
 import type { AggregationNode } from "../../../client/src/lib/semantic-layer/tree-engine";
@@ -97,16 +100,48 @@ function buildModel(rows: Row[], calculatedMeasures: Measure[]): SemanticModel {
 }
 
 /**
+ * true si `name` se puede evaluar con las columnas realmente presentes en la
+ * fila: si es una medida, resuelve recursivamente los identificadores de su
+ * formula; si no, tiene que estar como columna cruda. Necesario porque
+ * /aggregate ahora proyecta solo las columnas que CADA widget pide
+ * (column-projection.ts) -- una medida escalar que otro widget del mismo
+ * conector definio (ej. "Ruta" = origen + destino) puede quedar sin sus
+ * columnas crudas si el widget actual no las pidio.
+ */
+function scalarMeasureIsComputable(
+  model: SemanticModel,
+  engine: ReturnType<SemanticModel["getExpressionEngine"]>,
+  name: string,
+  availableColumns: Set<string>,
+  visiting: Set<string> = new Set()
+): boolean {
+  if (visiting.has(name)) return false; // referencia circular: no evaluable de forma segura
+  const measure = model.getMeasure(name);
+  if (!measure) return availableColumns.has(name);
+  visiting.add(name);
+  const ok = engine
+    .getAllIdentifiers(measure.expression)
+    .every((id) => scalarMeasureIsComputable(model, engine, id, availableColumns, visiting));
+  visiting.delete(name);
+  return ok;
+}
+
+/**
  * Agrega columnas virtuales para las medidas calculadas ESCALARES (por fila,
  * ej. "mes" = MONTH(fecha), "ruta" = CONCAT(origen,destino)), para que agrupar
  * por su nombre funcione igual que con una columna real. Espejo exacto de
- * augmentRowsWithScalarMeasures del cliente.
+ * augmentRowsWithScalarMeasures del cliente, salvo que aqui se omite (no se
+ * lanza error) una medida cuyas columnas crudas no estan en la fila proyectada
+ * -- el widget actual no la pidio, asi que no debe tumbar toda la respuesta
+ * por una medida de OTRO widget que comparte el mismo conector.
  */
 function augmentScalar(model: SemanticModel, rows: Row[]): Row[] {
   const engine = model.getExpressionEngine();
+  const availableColumns = new Set(rows[0] ? Object.keys(rows[0]) : []);
   const names = model
     .listMeasures()
     .filter((m) => m.isCalculated && engine.isRowScalar(m.expression))
+    .filter((m) => scalarMeasureIsComputable(model, engine, m.name, availableColumns))
     .map((m) => m.name);
   if (names.length === 0) return rows;
 
@@ -238,7 +273,7 @@ export interface TreeNodeDTO {
 export interface TreeColumnMeta {
   id: string;
   header: string;
-  type: "number" | "percent" | "currency";
+  type: "number" | "percent" | "currency" | "text";
   decimals?: number;
   currency?: string;
 }
@@ -305,27 +340,38 @@ export function aggregateTree(
   const tree = buildAggregationTree(filtered, groupByColumns, registry);
 
   // Filas hoja proyectadas: por cada fila cruda, las columnas de grupo + el
-  // valor por-fila de cada columna de valor (mismo evaluateMetricForRows que
-  // usaba el accessor de hoja del cliente, para que las hojas se vean igual).
+  // valor por-fila de cada columna de valor. Usa evaluateMetricValueForRows
+  // (SIN forzar a numero): evaluateMetricForRows convierte cualquier medida
+  // no-numerica a 0 (ej. "Ruta" = origen+" - "+destino quedaba como 0 en vez
+  // del texto real) -- una medida de texto es tan valida como una numerica,
+  // no hay que asumir el tipo de antemano.
   const leaves: Row[] = filtered.map((row) => {
     const leaf: Row = {};
     for (const col of groupByColumns) leaf[col] = row[col];
     for (const col of valueColumns) {
       leaf[col] = registry.has(col)
-        ? evaluateMetricForRows(model, [row], col)
+        ? evaluateMetricValueForRows(model, [row], col)
         : row[col];
     }
     return leaf;
   });
 
+  // El tipo de columna se decide por el valor REAL calculado, no por el
+  // formato declarado (que puede faltar o quedar desactualizado): asi
+  // cualquier medida futura que alguien agregue -- traiga las columnas que
+  // traiga -- se muestra de forma segura (texto si no es numero) sin que
+  // haga falta configurar nada a mano.
   const columnsMeta: TreeColumnMeta[] = valueColumns.map((col) => {
     const def = registry.get(col);
     const formatType = def?.format?.type;
+    const sample = leaves.length > 0 ? leaves[0][col] : undefined;
+    const isNumeric = typeof sample === "number" || sample == null;
     return {
       id: col,
       header: def?.label ?? col,
-      type:
-        formatType === "percent" || formatType === "currency"
+      type: !isNumeric
+        ? "text"
+        : formatType === "percent" || formatType === "currency"
           ? formatType
           : "number",
       decimals: def?.format?.decimals,

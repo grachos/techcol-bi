@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { Trash2, UserX, UserCheck, Mail } from 'lucide-react'
+import { Trash2, UserX, UserCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { sleep } from '@/lib/utils'
@@ -40,41 +40,9 @@ export function DataTableBulkActions<TData>({
     table.resetRowSelection()
   }
 
-  const handleBulkInvite = () => {
-    const selectedUsers = selectedRows.map((row) => row.original as User)
-    toast.promise(sleep(2000), {
-      loading: t('Inviting users...'),
-      success: () => {
-        table.resetRowSelection()
-        return t('{{n}} user(s) invited', { n: selectedUsers.length })
-      },
-      error: t('Error inviting users'),
-    })
-    table.resetRowSelection()
-  }
-
   return (
     <>
       <BulkActionsToolbar table={table} entityName='user'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='outline'
-              size='icon'
-              onClick={handleBulkInvite}
-              className='size-8'
-              aria-label={t('Invite selected users')}
-              title={t('Invite selected users')}
-            >
-              <Mail />
-              <span className='sr-only'>{t('Invite selected users')}</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('Invite selected users')}</p>
-          </TooltipContent>
-        </Tooltip>
-
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

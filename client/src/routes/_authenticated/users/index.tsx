@@ -12,8 +12,6 @@ const usersSearchSchema = z.object({
       z.union([
         z.literal('active'),
         z.literal('inactive'),
-        z.literal('invited'),
-        z.literal('suspended'),
       ])
     )
     .optional()

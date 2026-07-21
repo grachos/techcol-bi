@@ -28,9 +28,15 @@ export function SelectFilterWidget({
   // Las opciones se calculan sobre `rows` (todas las filas traidas, sin el
   // recorte de applyFilters): un select de valores no debe reducirse por los
   // demas filtros activos, solo la consulta al origen usa el rango de fechas.
+  //
+  // Se pide solo `filterColumn`: el servidor valida contra el esquema real y
+  // cae solo a SELECT * si el nombre no es una columna real (ej. si en algun
+  // momento se filtra por una medida calculada) -- pedir la columna angosta
+  // es seguro, nunca rompe el caso donde no aplica.
   const { rows, error, isLoading, needsDateFilter } = useWidgetData(
     widget,
-    activeFilters
+    activeFilters,
+    widget.filterColumn ? [widget.filterColumn] : undefined
   )
   const restoredValue = widget.filterColumn ? activeFilters[widget.filterColumn] : undefined
   const [selectedValues, setSelectedValues] = useState<Set<string>>(

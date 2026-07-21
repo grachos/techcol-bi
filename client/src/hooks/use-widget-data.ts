@@ -17,15 +17,18 @@ import { useConnectorData, type Row } from './use-connector-data'
  *    un conector MySQL/Sheets no filtraria nada y solo ensuciaria el cache.
  *  - En el cliente: applyFilters() sobre las filas recibidas, para todos.
  *    Si la API ya filtro por fecha, volver a aplicarlo aqui es inocuo.
+ *
+ * `columns`: opcional -- ver useConnectorData. Si se omite, sigue siendo
+ * SELECT * (comportamiento identico al de antes de este parametro).
  */
-export function useWidgetData(widget: Widget, activeFilters: ActiveFilters) {
+export function useWidgetData(widget: Widget, activeFilters: ActiveFilters, columns?: string[]) {
   const params = useMemo(
     () =>
       widget.connectorType === 'rest_api' ? filtersToParams(activeFilters) : {},
     [widget.connectorType, activeFilters]
   )
 
-  const { rows: rawRows, error, isLoading } = useConnectorData(widget.connectorId, params)
+  const { rows: rawRows, error, isLoading } = useConnectorData(widget.connectorId, params, columns)
 
   // Agrega columnas virtuales para metricas calculadas escalares (ej. "ruta"
   // = CONCAT(origen, destino)), asi agrupar/filtrar por su nombre funciona

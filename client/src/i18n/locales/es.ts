@@ -526,6 +526,35 @@ export const es: Record<string, string> = {
     'Importa tareas rápidamente desde un archivo CSV.',
   File: 'Archivo',
   Close: 'Cerrar',
+
+  // ── Sincronizacion de conectores (DuckDB) ─────────────────────────────
+  Sync: 'Sincronizar',
+  'Controls when this connector\'s data in the local store gets refreshed.':
+    'Controla cuándo se actualizan los datos de este conector en el almacén local.',
+  'Syncing…': 'Sincronizando…',
+  'Updated {{time}} ago': 'Actualizado hace {{time}}',
+  '{{n}} rows': '{{n}} filas',
+  'Never synced — data comes live on each load until then.':
+    'Nunca sincronizado — los datos vienen en vivo en cada carga hasta que sincronices.',
+  'Date column': 'Columna de fecha',
+  'Detecting columns…': 'Detectando columnas…',
+  'None — always full refresh': 'Ninguna — siempre trae todo de nuevo',
+  'Only if this source has a date field. Enables incremental sync instead of re-fetching everything.':
+    'Solo si esta fuente tiene un campo de fecha. Habilita sincronización incremental en vez de traer todo de nuevo cada vez.',
+  'Re-read window (days)': 'Ventana de relectura (días)',
+  'Re-checks this many days back on every sync, in case old rows changed status.':
+    'Vuelve a revisar esta cantidad de días hacia atrás en cada sync, por si filas viejas cambiaron de estado.',
+  'Auto-sync every (minutes)': 'Auto-sincronizar cada (minutos)',
+  'Manual only': 'Solo manual',
+  'Save sync settings': 'Guardar configuración de sync',
+  'Sync settings saved': 'Configuración de sync guardada',
+  'First sync with a date column: give it an explicit range below. Sources that require a date filter fail on an empty one.':
+    'Primer sync con columna de fecha: dale un rango explícito abajo. Las fuentes que exigen filtro de fecha fallan si va vacío.',
+  From: 'Desde',
+  To: 'Hasta',
+  'Sync now': 'Sincronizar ahora',
+  'Synced {{n}} rows': 'Sincronizadas {{n}} filas',
+  'Sync failed': 'Falló la sincronización',
   'Please type "{{word}}" to confirm.': 'Escribe "{{word}}" para confirmar.',
   'Deleting tasks...': 'Eliminando tareas...',
   'Deleted {{n}} task(s)': 'Se eliminaron {{n}} tarea(s)',

@@ -14,8 +14,8 @@ function toRows(data: unknown): Row[] {
 
 /**
  * Datos crudos de un conector, compartidos vía react-query entre todos los
- * widgets que apunten al mismo connectorId (una sola petición de red, sin
- * importar cuántos widgets la consuman).
+ * widgets que apunten al mismo connectorId Y a los mismos parametros (una
+ * sola petición de red, sin importar cuántos widgets la consuman).
  *
  * NO refresca en automatico: la consulta se dispara al montar y al cambiar los
  * filtros (pulsar "Consultar"), o cuando el usuario pulsa "Actualizar". Antes
@@ -23,21 +23,28 @@ function toRows(data: unknown): Row[] {
  * APIs lentas o con limite de consultas por dia (p.ej. Silog).
  *
  * `params` son los filtros que viajan al origen (conectores parametrizados).
- * Van en la queryKey: cambiar el rango de fechas trae datos nuevos en vez de
- * reusar los del rango anterior.
+ * `columns`: opcional -- si el widget solo necesita 1-2 columnas (ej. un
+ * filtro de seleccion), las declara aqui y el servidor proyecta en SQL en vez
+ * de traer las ~70 columnas de una fuente ancha como Silog. Como `columns` se
+ * suma a `params` (y ambos van en la queryKey), un widget que pide columnas
+ * distintas a las de otro deja de compartir su fetch -- correcto, porque no
+ * pedian lo mismo; pero si TODOS los widgets del conector piden las mismas
+ * columnas (o ninguno pide `columns`), el fetch sigue compartido como antes.
  */
 export function useConnectorData(
   connectorId: number | null | undefined,
-  params: RuntimeParams = {}
+  params: RuntimeParams = {},
+  columns?: string[]
 ) {
   const shareToken = useShareToken()
+  const fullParams = columns?.length ? { ...params, columns: columns.join(',') } : params
 
   const query = useQuery({
-    queryKey: ['connector-data', connectorId, shareToken, params],
+    queryKey: ['connector-data', connectorId, shareToken, fullParams],
     queryFn: () =>
       shareToken
-        ? biApi.dashboard.dataShared(shareToken, connectorId as number, params)
-        : biApi.data(connectorId as number, params),
+        ? biApi.dashboard.dataShared(shareToken, connectorId as number, fullParams)
+        : biApi.data(connectorId as number, fullParams),
     enabled: connectorId != null,
     staleTime: Infinity,
     refetchOnWindowFocus: false,

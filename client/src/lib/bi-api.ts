@@ -18,6 +18,9 @@ export interface Connector {
   id: number
   name: string
   type: ConnectorType
+  date_column: string | null
+  sync_window_days: number
+  sync_interval_minutes: number | null
   created_at: string
 }
 
@@ -79,7 +82,7 @@ export interface TreeNodeDTO {
 export interface TreeColumnMeta {
   id: string
   header: string
-  type: 'number' | 'percent' | 'currency'
+  type: 'number' | 'percent' | 'currency' | 'text'
   decimals?: number
   currency?: string
 }
@@ -115,6 +118,27 @@ export interface ConnectorTestResult {
   rowCount: number
   /** Filtros con que se hizo la prueba (rango por defecto si no se indicó) */
   params?: Record<string, string>
+}
+
+export interface SyncStatus {
+  status: 'idle' | 'syncing' | 'error'
+  last_sync_at: string | null
+  last_watermark?: string | null
+  row_count: number | null
+  last_error?: string | null
+}
+
+export interface SyncResult {
+  status: 'idle' | 'error'
+  rowCount?: number
+  watermark?: string | null
+  error?: string
+}
+
+export interface SyncConfig {
+  dateColumn: string | null
+  syncWindowDays?: number
+  syncIntervalMinutes?: number | null
 }
 
 export const CONNECTOR_TYPE_LABELS: Record<ConnectorType, string> = {
@@ -184,6 +208,23 @@ export const biApi = {
 
   data: (id: number, params: Record<string, string> = {}): Promise<ConnectorData> =>
     apiFetch(`/api/connectors/${id}/data${toQuery(params)}`).then((r) => handle(r)),
+
+  syncStatus: (id: number): Promise<SyncStatus> =>
+    apiFetch(`/api/connectors/${id}/sync`).then((r) => handle(r)),
+
+  sync: (id: number, range?: { from?: string; to?: string }): Promise<SyncResult> =>
+    apiFetch(`/api/connectors/${id}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(range ?? {}),
+    }).then((r) => handle(r)),
+
+  syncConfig: (id: number, config: SyncConfig): Promise<{ ok: boolean }> =>
+    apiFetch(`/api/connectors/${id}/sync-config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    }).then((r) => handle(r)),
 
   aggregate: (id: number, body: StatAggBody): Promise<StatAggResult> =>
     apiFetch(`/api/connectors/${id}/aggregate`, {

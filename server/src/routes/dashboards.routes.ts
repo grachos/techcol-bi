@@ -3,9 +3,9 @@ import { randomBytes } from "crypto";
 import { pool } from "../db";
 import { requireAuth } from "../middleware/auth";
 import { truncateRows } from "../utils/security";
-import { parseRuntimeParams } from "../utils/runtime-params";
-import { aggregateStat, aggregateTree } from "../services/aggregation-service";
-import { getRowsForAggregation, getRawRowsForConnector } from "../services/rows-source";
+import { parseRuntimeParams, parseColumnsParam } from "../utils/runtime-params";
+import { runAggregateCached } from "../services/cached-aggregate";
+import { getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorType } from "../connectors/BaseConnector";
 
 const router = Router();
@@ -209,9 +209,11 @@ router.get(
       }
 
       const params = parseRuntimeParams(req.query);
+      const columns = parseColumnsParam(req.query);
       const { rows: sourceRows } = await getRawRowsForConnector(
         { id: connector.id, type: connector.type as ConnectorType, config: connector.config, date_column: connector.date_column },
-        params
+        params,
+        columns
       );
 
       const { data: rowsOut, truncated } = truncateRows(sourceRows);
@@ -248,15 +250,14 @@ router.post(
       const calc = req.body?.calculatedMeasures ?? [];
       const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
       const query = req.body?.query ?? {};
-      const { rows: rawRows } = await getRowsForAggregation(
+      const result = await runAggregateCached(
         { id: connector.id, type: connector.type as ConnectorType, config: connector.config },
         params,
         filters,
-        { mode, query, calculatedMeasures: calc }
+        mode,
+        query,
+        calc
       );
-
-      const result =
-        mode === "tree" ? aggregateTree(rawRows, calc, filters, query) : aggregateStat(rawRows, calc, filters, query);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

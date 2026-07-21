@@ -149,6 +149,31 @@ export function WidgetCard({
         )}
       </CardHeader>
       <CardContent className='min-h-0 flex-1 px-2 py-1'>
+        {/*
+         * CONSIGNA para un `kind` nuevo que AGREGUE/AGRUPE datos (sumar,
+         * promediar, agrupar por dimension -- no solo mostrar filas crudas
+         * una a una): tiene que pasar por el motor server-side (DuckDB), NO
+         * por useWidgetData + calculo en el cliente.
+         *
+         * Por que: useWidgetData trae filas crudas y las procesa en el
+         * navegador -- eso es exactamente lo que congelaba el dashboard con
+         * decenas de miles de filas (ver StatWidget/TreeGridWidget antes de
+         * la migracion, y el hallazgo real: Intl.NumberFormat sin cache en
+         * formatting.ts). Un widget nuevo que agregue en el cliente
+         * reintroduce el mismo problema con datasets grandes.
+         *
+         * Como: seguir el patron de StatWidget (hooks/use-stat-aggregation.ts)
+         * o TreeGridWidget (hooks/use-tree-aggregation.ts) -- piden a
+         * server/src/services/aggregation-service.ts via POST /aggregate, que
+         * ya trae los datos de DuckDB con el filtro empujado a SQL y solo las
+         * columnas necesarias (rows-source.ts + column-projection.ts).
+         *
+         * combo/progress/map/calendar/chart NO agregan -- muestran una fila
+         * cruda por punto/barra/pin (ChartWidgetBody incluso tiene su propio
+         * cap MAX_CHART_POINTS). Por eso siguen en useWidgetData: es
+         * apropiado para ellos, no hace falta migrarlos. Si alguno empieza a
+         * agrupar/sumar en el futuro, ahi si aplica esta consigna.
+         */}
         {widget.kind === 'chart' && (
           <ChartWidgetBody widget={widget} activeFilters={activeFilters} />
         )}
@@ -198,8 +223,15 @@ function ChartWidgetBody({
   activeFilters: ActiveFilters
 }) {
   const { t } = useTranslation()
+  // chartType 'table' muestra TODAS las columnas (no solo xKey/yKey) -- ahi
+  // no se puede proyectar. Para el resto, igual que combo/map/progress: solo
+  // si ambas ya estan configuradas, para no romper la auto-deteccion.
+  const wantedColumns =
+    widget.chartType !== 'table' && widget.xKey && widget.yKey
+      ? [widget.xKey, widget.yKey]
+      : undefined
   const { rows, filteredRows, error, isLoading, needsDateFilter } =
-    useWidgetData(widget, activeFilters)
+    useWidgetData(widget, activeFilters, wantedColumns)
 
   const columns = useMemo(
     () => (filteredRows.length > 0 ? Object.keys(filteredRows[0]) : []),
