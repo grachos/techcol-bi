@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { MailPlus, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { showSubmittedData } from '@/lib/show-submitted-data'
+import { dashboardApi, type DashboardSummary } from '@/lib/dashboard-api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,13 +29,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { SelectDropdown } from '@/components/select-dropdown'
 import { roles } from '../data/data'
-
-const AVAILABLE_DASHBOARDS = [
-  { id: 1, name: 'Sales Dashboard' },
-  { id: 2, name: 'Analytics Dashboard' },
-  { id: 3, name: 'Financial Dashboard' },
-  { id: 4, name: 'Inventory Dashboard' },
-]
 
 const AVAILABLE_PAGES = [
   { name: 'dashboard', label: 'Dashboard' },
@@ -68,6 +63,27 @@ export function UsersInviteDialog({
   onOpenChange,
 }: UserInviteDialogProps) {
   const { t } = useTranslation()
+  const [availableDashboards, setAvailableDashboards] = useState<DashboardSummary[]>([])
+  const [loadingDashboards, setLoadingDashboards] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      loadDashboards()
+    }
+  }, [open])
+
+  const loadDashboards = async () => {
+    try {
+      setLoadingDashboards(true)
+      const dashboards = await dashboardApi.list()
+      setAvailableDashboards(dashboards)
+    } catch (error) {
+      console.error('Error loading dashboards:', error)
+    } finally {
+      setLoadingDashboards(false)
+    }
+  }
+
   const formSchema = buildSchema(t)
   const form = useForm<UserInviteForm>({
     resolver: zodResolver(formSchema),
@@ -157,30 +173,36 @@ export function UsersInviteDialog({
                     <FormItem>
                       <FormLabel>{t('Dashboards')}</FormLabel>
                       <div className='space-y-2'>
-                        {AVAILABLE_DASHBOARDS.map((db) => (
-                          <FormField
-                            key={db.id}
-                            control={form.control}
-                            name='dashboardIds'
-                            render={({ field }) => (
-                              <FormItem className='flex items-center gap-2 space-y-0'>
-                                <Checkbox
-                                  checked={field.value?.includes(db.id)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      field.onChange([...(field.value ?? []), db.id])
-                                    } else {
-                                      field.onChange(field.value?.filter((id) => id !== db.id) ?? [])
-                                    }
-                                  }}
-                                />
-                                <FormLabel className='text-sm font-normal cursor-pointer'>
-                                  {db.name}
-                                </FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                        ))}
+                        {loadingDashboards ? (
+                          <p className='text-sm text-muted-foreground'>{t('Loading dashboards...')}</p>
+                        ) : availableDashboards.length === 0 ? (
+                          <p className='text-sm text-muted-foreground'>{t('No dashboards available')}</p>
+                        ) : (
+                          availableDashboards.map((db) => (
+                            <FormField
+                              key={db.id}
+                              control={form.control}
+                              name='dashboardIds'
+                              render={({ field }) => (
+                                <FormItem className='flex items-center gap-2 space-y-0'>
+                                  <Checkbox
+                                    checked={field.value?.includes(db.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...(field.value ?? []), db.id])
+                                      } else {
+                                        field.onChange(field.value?.filter((id) => id !== db.id) ?? [])
+                                      }
+                                    }}
+                                  />
+                                  <FormLabel className='text-sm font-normal cursor-pointer'>
+                                    {db.name}
+                                  </FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                          ))
+                        )}
                       </div>
                       <FormMessage />
                     </FormItem>
