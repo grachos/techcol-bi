@@ -19,7 +19,7 @@ export const sidebarData: SidebarData = {
   teams: [
     {
       name: 'BI-TechCol',
-      logo: Command,
+      logo: ChartColumn,
       plan: 'Business Intelligence',
     },
   ],

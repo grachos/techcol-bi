@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Command } from 'lucide-react'
+import { ChartColumn } from 'lucide-react'
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -22,8 +22,8 @@ export function AppTitle() {
             onClick={() => setOpenMobile(false)}
             className='flex items-center gap-2.5 flex-1 overflow-hidden'
           >
-            <div className='bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0'>
-              <Command className='size-4' />
+            <div className='bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 shadow-xs'>
+              <ChartColumn className='size-4' />
             </div>
             <div className='grid flex-1 text-start text-sm leading-tight overflow-hidden'>
               <span className='truncate font-semibold text-foreground'>BI-TechCol</span>
