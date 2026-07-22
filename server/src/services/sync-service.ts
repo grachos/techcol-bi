@@ -12,6 +12,7 @@ import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { ConnectorType } from "../connectors/BaseConnector";
 import { fullRefresh, incrementalRefresh, getMaxDate } from "./analytics-db";
 import { bumpDataVersion } from "./data-version";
+import { purgeExpiredConnectorData } from "./connector-cache";
 
 export interface ConnectorSyncRow {
   id: number;
@@ -143,6 +144,18 @@ export async function runSync(
  */
 export function startSyncScheduler(tickMs = 60_000): void {
   setInterval(async () => {
+    // Aprovecha el mismo tick para liberar el cache ya vencido de
+    // connector_data (una fila por combinacion de filtros, con el dataset
+    // completo dentro). No es critico, por eso solo se registra si falla.
+    try {
+      const purged = await purgeExpiredConnectorData();
+      if (purged > 0) {
+        console.log(`[cache-purge] ${purged} entrada(s) vencida(s) liberada(s)`);
+      }
+    } catch (error) {
+      console.error("[cache-purge] no se pudo limpiar connector_data:", error);
+    }
+
     let due: any[];
     try {
       const [rows]: any = await pool.query(

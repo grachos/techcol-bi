@@ -37,6 +37,21 @@ export async function invalidateConnectorCache(
   ]);
 }
 
+/**
+ * Borra las entradas ya vencidas. Pasado el TTL no se pueden servir (se
+ * vuelve a consultar la fuente igual), asi que solo ocupan espacio: queda una
+ * fila por cada combinacion de filtros que se haya usado alguna vez, con el
+ * dataset completo serializado, y sin esto no se libera nunca -- solo al
+ * editar o borrar el conector.
+ */
+export async function purgeExpiredConnectorData(): Promise<number> {
+  const [result]: any = await pool.query(
+    "DELETE FROM connector_data WHERE fetched_at < NOW() - INTERVAL ? SECOND",
+    [Math.ceil(CACHE_TTL_MS / 1000)]
+  );
+  return result.affectedRows ?? 0;
+}
+
 export async function getCachedConnectorData(
   connectorId: number,
   params: RuntimeParams,
