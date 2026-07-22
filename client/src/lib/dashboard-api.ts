@@ -145,6 +145,7 @@ export interface Widget {
   color: WidgetColor
   xKey: string | null
   yKey: string | null
+  granoKey?: string | null
   aggregation: Aggregation | null
   targetValue: number | null
   targetLabel: string | null
@@ -173,6 +174,7 @@ export interface WidgetPayload {
   color?: WidgetColor
   xKey?: string | null
   yKey?: string | null
+  granoKey?: string | null
   aggregation?: Aggregation | null
   targetValue?: number | null
   targetLabel?: string | null

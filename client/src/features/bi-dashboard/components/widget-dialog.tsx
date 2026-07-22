@@ -711,42 +711,82 @@ export function WidgetDialog({
           )}
 
           {((kind === 'chart' && chartType !== 'table') || kind === 'combo') && (
-            <div className='grid grid-cols-2 gap-4'>
-              <div className='space-y-2'>
-                <Label htmlFor='widget-xkey'>
-                  {t('X axis column')}{' '}
-                  <span className='text-muted-foreground'>
-                    {t('(optional)')}
-                  </span>
-                </Label>
-                <ColumnField
-                  id='widget-xkey'
-                  value={xKey}
-                  onChange={setXKey}
-                  columns={groupableColumnOptions}
-                  columnsLoading={columnsLoading}
-                  allowAuto
-                  autoLabel={t('Auto-detect')}
-                  placeholder={t('Auto-detect')}
-                />
+            <div className='space-y-4'>
+              <div className='grid grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='widget-xkey'>
+                    {t('X axis column')}{' '}
+                    <span className='text-muted-foreground'>
+                      {t('(optional)')}
+                    </span>
+                  </Label>
+                  <ColumnField
+                    id='widget-xkey'
+                    value={xKey}
+                    onChange={setXKey}
+                    columns={groupableColumnOptions}
+                    columnsLoading={columnsLoading}
+                    allowAuto
+                    autoLabel={t('Auto-detect')}
+                    placeholder={t('Auto-detect')}
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='widget-ykey'>
+                    {t('Y axis column')}{' '}
+                    <span className='text-muted-foreground'>
+                      {t('(optional)')}
+                    </span>
+                  </Label>
+                  <ColumnField
+                    id='widget-ykey'
+                    value={yKey}
+                    onChange={setYKey}
+                    columns={groupableColumnOptions}
+                    columnsLoading={columnsLoading}
+                    allowAuto
+                    autoLabel={t('Auto-detect')}
+                    placeholder={t('Auto-detect')}
+                  />
+                </div>
               </div>
-              <div className='space-y-2'>
-                <Label htmlFor='widget-ykey'>
-                  {t('Y axis column')}{' '}
-                  <span className='text-muted-foreground'>
-                    {t('(optional)')}
-                  </span>
-                </Label>
-                <ColumnField
-                  id='widget-ykey'
-                  value={yKey}
-                  onChange={setYKey}
-                  columns={groupableColumnOptions}
-                  columnsLoading={columnsLoading}
-                  allowAuto
-                  autoLabel={t('Auto-detect')}
-                  placeholder={t('Auto-detect')}
-                />
+              <div className='grid grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='widget-grano'>
+                    {t('Leaf grain column')}{' '}
+                    <span className='text-muted-foreground'>
+                      {t('(optional)')}
+                    </span>
+                  </Label>
+                  <ColumnField
+                    id='widget-grano'
+                    value={granoKey}
+                    onChange={setGranoKey}
+                    columns={groupableColumnOptions}
+                    columnsLoading={columnsLoading}
+                    allowAuto
+                    autoLabel={t('No leaf grain')}
+                    placeholder={t('e.g. manifiesto, tercero')}
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label>{t('Aggregation')}</Label>
+                  <Select
+                    value={aggregation}
+                    onValueChange={(v) => setAggregation(v as Aggregation)}
+                  >
+                    <SelectTrigger className='w-full'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGGREGATIONS.map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {t(AGGREGATION_LABELS[a])}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           )}
