@@ -13,7 +13,7 @@ import { ConnectorType } from "../connectors/BaseConnector";
 
 const router = Router();
 
-const CHART_TYPES = ["bar", "line", "area", "pie", "table", "gradient_bar"] as const;
+const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
 
 const WIDGET_KINDS = [
