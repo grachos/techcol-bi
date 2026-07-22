@@ -338,20 +338,29 @@ export function WidgetDialog({
       setGroupByColumns(widget.kind === 'tree_grid' ? loadedXKey.split(',').filter(Boolean) : [])
       setValueColumns(widget.kind === 'tree_grid' ? loadedYKey.split(',').filter(Boolean) : [])
     } else if (aiSuggestion) {
-      setKind('chart')
+      const suggestedKind = aiSuggestion.kind ?? 'chart'
+      setKind(suggestedKind)
       setTitle(aiSuggestion.title)
       setConnectorId(String(aiSuggestion.connectorId))
-      setChartType(aiSuggestion.chartType)
+      setChartType(aiSuggestion.chartType ?? 'bar')
       setColor(aiSuggestion.color ?? 'primary')
       setXKey(aiSuggestion.xKey ?? '')
       setGranoKey('')
       setYKey(aiSuggestion.yKey ?? '')
-      setAggregation('sum')
+      setAggregation(aiSuggestion.aggregation ?? 'sum')
       setTargetValue('')
       setTargetLabel('')
-      setFilterColumn('')
-      setGroupByColumns([])
-      setValueColumns([])
+      setFilterColumn(aiSuggestion.filterColumn ?? aiSuggestion.xKey ?? '')
+      setGroupByColumns(
+        suggestedKind === 'tree_grid' && aiSuggestion.xKey
+          ? aiSuggestion.xKey.split(',').filter(Boolean)
+          : []
+      )
+      setValueColumns(
+        suggestedKind === 'tree_grid' && aiSuggestion.yKey
+          ? aiSuggestion.yKey.split(',').filter(Boolean)
+          : []
+      )
     } else {
       setKind('chart')
       setTitle('')

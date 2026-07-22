@@ -2,9 +2,10 @@ import { apiFetch } from './api-fetch'
 /**
  * Cliente del Copiloto de IA (Groq, modelos open-source) en el backend.
  */
-import type { Aggregation, ChartType, WidgetColor } from './dashboard-api'
+import type { Aggregation, ChartType, WidgetColor, WidgetKind } from './dashboard-api'
 
 export interface WidgetSuggestion {
+  kind: WidgetKind
   connectorId: number
   connectorName: string
   title: string
@@ -12,6 +13,8 @@ export interface WidgetSuggestion {
   color: WidgetColor | null
   xKey: string | null
   yKey: string | null
+  filterColumn?: string | null
+  aggregation?: Aggregation | null
   explanation: string
 }
 
@@ -44,11 +47,14 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export const aiApi = {
-  suggestWidget: (prompt: string): Promise<WidgetSuggestion> =>
+  suggestWidget: (
+    prompt: string,
+    calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>
+  ): Promise<WidgetSuggestion> =>
     apiFetch('/api/ai/suggest-widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, calculatedMeasures }),
     }).then((r) => handle(r)),
 
   editWidget: (

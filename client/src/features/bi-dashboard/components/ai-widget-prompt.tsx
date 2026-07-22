@@ -3,16 +3,18 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { aiApi, type WidgetSuggestion } from '@/lib/ai-api'
+import { peekConnectorSemanticModel } from '@/lib/semantic-layer'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
 interface AiWidgetPromptProps {
   disabled?: boolean
+  connectors?: Array<{ id: number; name: string }>
   onSuggestion: (suggestion: WidgetSuggestion) => void
 }
 
-export function AiWidgetPrompt({ disabled, onSuggestion }: AiWidgetPromptProps) {
+export function AiWidgetPrompt({ disabled, connectors, onSuggestion }: AiWidgetPromptProps) {
   const { t } = useTranslation()
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +23,22 @@ export function AiWidgetPrompt({ disabled, onSuggestion }: AiWidgetPromptProps) 
     if (!prompt.trim()) return
     setLoading(true)
     try {
-      const suggestion = await aiApi.suggestWidget(prompt)
+      const calculatedMeasures = (connectors ?? []).flatMap((c) => {
+        const m = peekConnectorSemanticModel(c.id)
+        if (!m) return []
+        return m
+          .listMeasures()
+          .filter((meas) => meas.isCalculated)
+          .map((meas) => ({
+            name: meas.name,
+            label: meas.label,
+            expression: meas.expression,
+            connectorId: c.id,
+            connectorName: c.name,
+          }))
+      })
+
+      const suggestion = await aiApi.suggestWidget(prompt, calculatedMeasures)
       onSuggestion(suggestion)
       setPrompt('')
     } catch (error) {

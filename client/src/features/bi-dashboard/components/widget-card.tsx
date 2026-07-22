@@ -136,11 +136,6 @@ export function WidgetCard({
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className='size-3.5' /> {t('Edit')}
               </DropdownMenuItem>
-              {onAiEdit && (
-                <DropdownMenuItem onClick={onAiEdit}>
-                  <Sparkles className='size-3.5' /> {t('Edit with AI')}
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem onClick={onDelete} variant='destructive'>
                 <Trash2 className='size-3.5' /> {t('Delete')}
               </DropdownMenuItem>

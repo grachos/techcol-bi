@@ -10,6 +10,20 @@ import { askGroqJson } from "../services/groq";
 
 const router = Router();
 
+const WIDGET_KINDS = [
+  "chart",
+  "stat",
+  "combo",
+  "progress",
+  "map",
+  "tree_grid",
+  "calendar",
+  "clock",
+  "filter_date",
+  "filter_select",
+] as const;
+type WidgetKind = (typeof WIDGET_KINDS)[number];
+
 const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
 
@@ -114,43 +128,68 @@ async function describeConnectors(userId: number): Promise<ConnectorSummary[]> {
   return summaries;
 }
 
-function buildSystemPrompt(connectors: ConnectorSummary[]): string {
+function buildSystemPrompt(
+  connectors: ConnectorSummary[],
+  calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>
+): string {
   const catalog = connectors
     .map((c) => {
       const cols = c.columns.length > 0 ? c.columns.join(", ") : "(desconocidas)";
-      return `- id=${c.id} nombre="${c.name}" tipo=${c.type} columnas=[${cols}]`;
+      const cMeasures = (calculatedMeasures ?? [])
+        .filter((m) => m.connectorId === c.id || !m.connectorId)
+        .map((m) => `${m.name} ("${m.label}"${m.expression ? `: ${m.expression}` : ''})`);
+      const measuresText = cMeasures.length > 0 ? cMeasures.join(", ") : "ninguna";
+      return `- id=${c.id} nombre="${c.name}" tipo=${c.type}\n  Columnas crudas: [${cols}]\n  Métricas calculadas: [${measuresText}]`;
     })
-    .join("\n");
+    .join("\n\n");
 
-  return `Eres un asistente que configura widgets para un dashboard de Business Intelligence.
-El usuario describe en lenguaje natural (espanol o ingles) que quiere visualizar.
-Debes elegir el conector de datos mas adecuado de esta lista y la mejor configuracion de grafica.
+  return `Eres un experto copiloto de Business Intelligence y asistente de creación de widgets.
+El usuario describe en lenguaje natural qué widget o visualización desea crear.
+Debes analizar la intención del usuario y seleccionar EL MEJOR TIPO DE WIDGET ("kind"), el conector adecuado y los campos correspondientes.
 
-Conectores disponibles:
+Conectores y catálogo de datos disponible (incluye columnas crudas y métricas calculadas):
 ${catalog || "(el usuario no tiene conectores configurados)"}
 
-Tipos de grafica validos: bar, line, area, pie, table.
-Colores validos: primary, pink, blue, green, orange, purple, teal.
+Tipos de widget disponibles (propiedad "kind"):
+1. "filter_select": Filtro de selección / desplegable para filtrar el dashboard por una columna (ej: "filtro de seleccion", "filtro de cliente", "desplegable", "dropdown", "filtro"). Requiere "filterColumn".
+2. "filter_date": Filtro de rango de fechas (ej: "filtro de fechas", "rango de fecha"). Requiere "filterColumn".
+3. "stat": Tarjeta KPI con un valor numérico destacado o agregado (ej: "KPI de utilidad", "total de ventas", "indicador"). Usar "yKey" y opcionalmente "aggregation" ("sum"|"avg"|"count"|"min"|"max").
+4. "tree_grid": Tabla analítica jerárquica / tabla dinámica (ej: "tabla dinamica", "matriz de datos", "tabla de clientes con total remesa"). Usar "xKey" (columnas para agrupar separadas por coma) e "yKey" (columnas numéricas o métricas separadas por coma).
+5. "chart": Gráfica tradicional (barras, líneas, área, pastel, tabla simple). Usar "chartType" ("bar"|"line"|"area"|"pie"|"table"), "xKey" (categoría/eje X) e "yKey" (valor/eje Y).
+6. "progress": Lista de barras de progreso (ej: "progreso", "porcentaje por categoría"). Usar "xKey" e "yKey".
+7. "map": Mapa geográfico coloreado por país/región. Usar "xKey" (país) e "yKey" (valor).
+8. "combo": Gráfica combinada de barras y líneas. Usar "xKey" e "yKey".
+9. "calendar": Calendario de fechas. Usar "xKey" (columna de fecha).
+10. "clock": Reloj en vivo.
 
-Responde SOLO un objeto JSON con esta forma exacta, sin texto adicional:
+Colores válidos: primary, pink, blue, green, orange, purple, teal.
+
+REGLAS CRÍTICAS DE SELECCIÓN:
+- Si el usuario pide un filtro de selección (palabras clave: "filtro de seleccion", "filtro", "desplegable", "dropdown", "select", "filtrar por"), DEBES responder con "kind": "filter_select" y asignar "filterColumn" con el nombre de la columna adecuada. NUNCA respondas "chart" ni "table" si el usuario pidió un filtro.
+- Si el usuario pide un filtro de fecha, DEBES responder con "kind": "filter_date" y "filterColumn" asignado.
+- Si pide un KPI o total acumulado, responde con "kind": "stat".
+- Si pide una tabla dinámica, matriz o jerarquía con totales, responde con "kind": "tree_grid".
+- Puedes usar tanto columnas crudas como métricas calculadas en xKey, yKey o filterColumn.
+- Proporciona una explicación clara, amigable y profesional en español en "explanation", indicando qué tipo de widget elegiste y por qué es el ideal.
+
+Responde ÚNICAMENTE un objeto JSON estructurado con la siguiente forma exacta:
 {
-  "connectorId": <numero, uno de los ids listados arriba>,
-  "title": "<titulo corto y descriptivo para el widget>",
+  "kind": "<filter_select|filter_date|stat|tree_grid|chart|progress|map|combo|calendar|clock>",
+  "connectorId": <numero_id_conector>,
+  "title": "<titulo corto y descriptivo>",
   "chartType": "<bar|line|area|pie|table>",
-  "color": "<primary|pink|blue|green|orange|purple|teal, elige uno acorde al tema o pedido>",
-  "xKey": "<nombre de columna para el eje X/categoria, o null si no aplica o quieres autodeteccion>",
-  "yKey": "<nombre de columna numerica para el eje Y, o null si no aplica o quieres autodeteccion>",
-  "explanation": "<una frase breve explicando tu eleccion>"
-}
-
-Si el usuario menciona un color (ej. "en azul", "verde"), usalo; si no, usa "primary".
-Si no hay conectores disponibles, responde con connectorId: null y explica el problema en "explanation".
-Usa unicamente columnas que existan en el conector elegido. Si no estas seguro de las columnas, deja xKey/yKey en null.`;
+  "color": "<primary|pink|blue|green|orange|purple|teal>",
+  "xKey": "<nombre de columna o columnas separadas por coma, o null>",
+  "yKey": "<nombre de columna/métrica o columnas separadas por coma, o null>",
+  "filterColumn": "<nombre de columna a filtrar, o null>",
+  "aggregation": "<sum|avg|count|min|max, o null>",
+  "explanation": "<explicación clara en español de por qué elegiste este tipo de widget y conector>"
+}`;
 }
 
 // Generar una sugerencia de widget a partir de una descripcion en lenguaje natural
 router.post("/suggest-widget", async (req: Request, res: Response) => {
-  const { prompt } = req.body ?? {};
+  const { prompt, calculatedMeasures } = req.body ?? {};
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "Campo requerido: prompt" });
   }
@@ -159,22 +198,26 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
     const connectors = await describeConnectors(req.userId!);
     if (connectors.length === 0) {
       return res.status(400).json({
-        error: "No tienes conectores configurados todavia. Crea uno primero.",
+        error: "No tienes conectores configurados todavía. Crea uno primero.",
       });
     }
 
-    const systemPrompt = buildSystemPrompt(connectors);
+    const systemPrompt = buildSystemPrompt(connectors, calculatedMeasures);
     const result: any = await askGroqJson(systemPrompt, prompt);
 
     const connectorId = Number(result?.connectorId);
-    const connector = connectors.find((c) => c.id === connectorId);
+    const connector = connectors.find((c) => c.id === connectorId) ?? connectors[0];
     if (!connector) {
       return res.status(422).json({
         error:
           result?.explanation ??
-          "La IA no pudo elegir un conector valido para tu descripcion.",
+          "La IA no pudo elegir un conector válido para tu descripción.",
       });
     }
+
+    const kind: WidgetKind = WIDGET_KINDS.includes(result?.kind)
+      ? result.kind
+      : "chart";
 
     const chartType: ChartType = CHART_TYPES.includes(result?.chartType)
       ? result.chartType
@@ -184,16 +227,17 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
       ? result.color
       : "primary";
 
-    const xKey =
-      typeof result?.xKey === "string" && connector.columns.includes(result.xKey)
-        ? result.xKey
-        : null;
-    const yKey =
-      typeof result?.yKey === "string" && connector.columns.includes(result.yKey)
-        ? result.yKey
-        : null;
+    const filterColumn =
+      typeof result?.filterColumn === "string" && result.filterColumn.trim()
+        ? result.filterColumn.trim()
+        : (typeof result?.xKey === "string" ? result.xKey : null);
+
+    const aggregation: Aggregation = AGGREGATIONS.includes(result?.aggregation)
+      ? result.aggregation
+      : "sum";
 
     res.json({
+      kind,
       connectorId: connector.id,
       connectorName: connector.name,
       title:
@@ -202,8 +246,10 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
           : prompt.slice(0, 60),
       chartType,
       color,
-      xKey,
-      yKey,
+      xKey: typeof result?.xKey === "string" ? result.xKey : null,
+      yKey: typeof result?.yKey === "string" ? result.yKey : null,
+      filterColumn,
+      aggregation,
       explanation: typeof result?.explanation === "string" ? result.explanation : "",
     });
   } catch (error: any) {

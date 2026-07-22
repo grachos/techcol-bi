@@ -257,6 +257,7 @@ export function BiDashboard() {
 
         {connectors.length > 0 && selectedId && (
           <AiWidgetPrompt
+            connectors={connectors}
             onSuggestion={(suggestion) => {
               setEditingWidget(undefined)
               setAiSuggestion(suggestion)
@@ -314,7 +315,6 @@ export function BiDashboard() {
                       setAiEditSuggestion(undefined)
                       setDialogOpen(true)
                     }}
-                    onAiEdit={() => setAiEditDialogWidget(widget)}
                     onDelete={() => handleDeleteWidget(widget)}
                     isEditing={isEditing}
                   />
