@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Sparkles } from 'lucide-react'
 import { biApi, SECRET_MASK, type Connector } from '@/lib/bi-api'
 import { Button } from '@/components/ui/button'
+import { AiGenerateSqlDialog } from './ai-generate-sql-dialog'
+import { PreviewQueryDialog } from './preview-query-dialog'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +42,8 @@ export function EditConnectorDialog({
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState(connector?.name ?? '')
   const [config, setConfig] = useState(connector?.config ?? {})
+  const [sqlDialogOpen, setSqlDialogOpen] = useState(false)
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
 
   // Sincronizar estados cuando el connector cambia
   useEffect(() => {
@@ -341,7 +346,31 @@ export function EditConnectorDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('Query')} (SELECT only)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{t('Query')} (SELECT only)</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewDialogOpen(true)}
+                      disabled={!((config.query as string) ?? '').trim()}
+                      className="gap-1 h-8 text-xs"
+                    >
+                      {t('Preview')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSqlDialogOpen(true)}
+                      className="gap-1 h-8 text-xs"
+                    >
+                      <Sparkles className="size-3.5" />
+                      {t('Generate with AI')}
+                    </Button>
+                  </div>
+                </div>
                 <Textarea
                   value={(config.query as string) ?? ''}
                   onChange={(e) => handleConfigChange('query', e.target.value)}
@@ -533,6 +562,35 @@ export function EditConnectorDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AiGenerateSqlDialog
+        open={sqlDialogOpen}
+        onOpenChange={setSqlDialogOpen}
+        connectorType={
+          connector.type === 'mysql' || connector.type === 'postgresql'
+            ? connector.type
+            : 'mysql'
+        }
+        host={(config.host as string) ?? ''}
+        port={(config.port as string | number) ? String(config.port) : ''}
+        user={(config.user as string) ?? ''}
+        password={(config.password as string) ?? ''}
+        database={(config.database as string) ?? ''}
+        onQuery={(query) => handleConfigChange('query', query)}
+      />
+
+      <PreviewQueryDialog
+        connectorId={connector.id}
+        query={(config.query as string) ?? ''}
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        connectorType={
+          (connector.type === 'mysql' || connector.type === 'postgresql'
+            ? connector.type
+            : 'mysql') as 'mysql' | 'postgresql'
+        }
+        onQueryChange={(newQuery) => handleConfigChange('query', newQuery)}
+      />
     </Dialog>
   )
 }
