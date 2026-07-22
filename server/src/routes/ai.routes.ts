@@ -227,14 +227,35 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
       ? result.color
       : "primary";
 
-    const filterColumn =
-      typeof result?.filterColumn === "string" && result.filterColumn.trim()
-        ? result.filterColumn.trim()
-        : (typeof result?.xKey === "string" ? result.xKey : null);
+    // Colección de todos los campos válidos (columnas crudas + métricas calculadas) para el conector elegido
+    const validFields = new Set<string>();
+    connector.columns.forEach((c) => validFields.add(c));
+    if (Array.isArray(calculatedMeasures)) {
+      calculatedMeasures
+        .filter((m: any) => m.connectorId === connector.id || !m.connectorId)
+        .forEach((m: any) => {
+          if (m.name) validFields.add(m.name);
+          if (m.label) validFields.add(m.label);
+        });
+    }
 
-    const aggregation: Aggregation = AGGREGATIONS.includes(result?.aggregation)
-      ? result.aggregation
-      : "sum";
+    const matchField = (field: unknown): string | null => {
+      if (typeof field !== "string" || !field.trim()) return null;
+      const clean = field.trim();
+      if (validFields.has(clean)) return clean;
+      const lower = clean.toLowerCase();
+      for (const valid of validFields) {
+        if (valid.toLowerCase() === lower) return valid;
+      }
+      for (const valid of validFields) {
+        if (valid.toLowerCase().includes(lower) || lower.includes(valid.toLowerCase())) return valid;
+      }
+      return clean;
+    };
+
+    const filterColumn = matchField(result?.filterColumn) ?? matchField(result?.xKey);
+    const xKey = matchField(result?.xKey);
+    const yKey = matchField(result?.yKey);
 
     res.json({
       kind,
@@ -246,8 +267,8 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
           : prompt.slice(0, 60),
       chartType,
       color,
-      xKey: typeof result?.xKey === "string" ? result.xKey : null,
-      yKey: typeof result?.yKey === "string" ? result.yKey : null,
+      xKey,
+      yKey,
       filterColumn,
       aggregation,
       explanation: typeof result?.explanation === "string" ? result.explanation : "",

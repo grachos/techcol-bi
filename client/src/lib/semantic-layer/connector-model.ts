@@ -58,6 +58,16 @@ export function peekConnectorSemanticModel(connectorId: number): SemanticModel |
   return modelCache.get(connectorId) ?? null
 }
 
+/** Devuelve todas las medidas calculadas guardadas para un conector (desde cache o localStorage si no esta instanciado). */
+export function getCalculatedMeasuresForConnector(connectorId: number): Measure[] {
+  const model = peekConnectorSemanticModel(connectorId)
+  if (model) {
+    return model.listMeasures().filter((m) => m.isCalculated)
+  }
+  const repo = new LocalStorageMetricsRepository(`semantic-connector-${connectorId}-metrics`)
+  return repo.load()
+}
+
 /**
  * Metricas calculadas por el usuario que NO usan agregacion (SUM/AVG/etc.):
  * se pueden evaluar fila por fila, ej. "ruta" = CONCAT(origen, destino).

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { aiApi, type WidgetSuggestion } from '@/lib/ai-api'
-import { peekConnectorSemanticModel } from '@/lib/semantic-layer'
+import { getCalculatedMeasuresForConnector } from '@/lib/semantic-layer'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -24,18 +24,14 @@ export function AiWidgetPrompt({ disabled, connectors, onSuggestion }: AiWidgetP
     setLoading(true)
     try {
       const calculatedMeasures = (connectors ?? []).flatMap((c) => {
-        const m = peekConnectorSemanticModel(c.id)
-        if (!m) return []
-        return m
-          .listMeasures()
-          .filter((meas) => meas.isCalculated)
-          .map((meas) => ({
-            name: meas.name,
-            label: meas.label,
-            expression: meas.expression,
-            connectorId: c.id,
-            connectorName: c.name,
-          }))
+        const measures = getCalculatedMeasuresForConnector(c.id)
+        return measures.map((meas) => ({
+          name: meas.name,
+          label: meas.label,
+          expression: meas.expression,
+          connectorId: c.id,
+          connectorName: c.name,
+        }))
       })
 
       const suggestion = await aiApi.suggestWidget(prompt, calculatedMeasures)

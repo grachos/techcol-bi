@@ -22,6 +22,7 @@ export { evaluateKpi } from './kpi-engine'
 export {
   getConnectorSemanticModel,
   peekConnectorSemanticModel,
+  getCalculatedMeasuresForConnector,
   listScalarCalculatedMeasureNames,
   augmentRowsWithScalarMeasures,
 } from './connector-model'
