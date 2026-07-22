@@ -95,23 +95,21 @@ export async function runSync(
     let sinceDay: string | null = null;
     let useIncremental = false;
 
-    if (connector.date_column) {
-      const watermark = override?.from ?? (await getWatermark(connector.id));
-      if (watermark) {
-        sinceDay = subtractDays(watermark, connector.sync_window_days);
-        params = { from: sinceDay, to: override?.to ?? todayStr() };
-        useIncremental = true;
-      } else if (override?.from || override?.to) {
-        // Primer sync de una fuente que exige rango de fechas (ej. Silog): sin
-        // watermark previo, se necesita un rango explicito en la peticion.
-        const from = override.from ?? override.to!;
-        const to = override.to ?? override.from!;
-        params = { from, to };
+    if (override?.from || override?.to) {
+      const from = override.from ?? override.to!;
+      const to = override.to ?? override.from!;
+      params = { from, to };
+      if (connector.date_column) {
         sinceDay = from;
         useIncremental = true;
       }
-      // Sin watermark ni override: primer sync "a ciegas" (fetchData sin
-      // parametros) -- funciona para fuentes que no exigen filtro de fecha.
+    } else if (connector.date_column) {
+      const watermark = await getWatermark(connector.id);
+      if (watermark) {
+        sinceDay = subtractDays(watermark, connector.sync_window_days);
+        params = { from: sinceDay, to: todayStr() };
+        useIncremental = true;
+      }
     }
 
     const raw = await instance.fetchData(params);

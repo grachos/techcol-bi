@@ -7,6 +7,9 @@ CREATE DATABASE IF NOT EXISTS bi_techcol
 
 USE bi_techcol;
 
+SET FOREIGN_KEY_CHECKS = 0;
+
+
 -- Usuarios de la plataforma (base minima; ampliar con auth real)
 CREATE TABLE IF NOT EXISTS users (
   id INT PRIMARY KEY AUTO_INCREMENT,

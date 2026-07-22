@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { MeasureRegistry, measureToDef } from '@/lib/semantic-layer'
 import type { ExpressionEngine } from '@/lib/semantic-layer'
 import type { FieldCatalogEntry, FormatType, Measure, Row } from '@/lib/semantic-layer'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Lightbulb } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -82,10 +82,20 @@ export function MetricForm({
     initial?.combinator ?? 'sum'
   )
 
-  const expressionError = useMemo(
-    () => (expression.trim() ? engine.validate(expression) : null),
-    [expression, engine]
-  )
+  const expressionError = useMemo(() => {
+    if (!expression.trim()) return null
+    const syntaxErr = engine.validate(expression)
+    if (syntaxErr) return syntaxErr
+
+    const allowed = new Set(fieldCatalog.map((f) => f.name))
+    const used = engine.getAllIdentifiers(expression)
+    const unknown = used.filter((id) => !allowed.has(id))
+
+    if (unknown.length > 0) {
+      return `El campo o métrica "${unknown.join(', ')}" no existe en el catálogo de campos disponible.`
+    }
+    return null
+  }, [expression, engine, fieldCatalog])
 
   const nameError = useMemo(() => {
     if (!name.trim()) return null
@@ -174,6 +184,22 @@ export function MetricForm({
 
   return (
     <div className='space-y-4'>
+      <div className='flex items-center justify-between border-b pb-3 mb-1'>
+        <Button
+          type='button'
+          variant='ghost'
+          size='sm'
+          className='flex items-center gap-1.5 text-muted-foreground hover:text-foreground -ms-2'
+          onClick={onCancel}
+        >
+          <ArrowLeft className='size-4' />
+          Atrás / Volver a la lista
+        </Button>
+        <span className='text-xs font-medium text-muted-foreground'>
+          {isEdit ? 'Editando métrica' : 'Nueva métrica calculada'}
+        </span>
+      </div>
+
       <div className='grid grid-cols-2 gap-4'>
         <div className='space-y-2'>
           <Label htmlFor='metric-name'>Nombre técnico</Label>
@@ -323,12 +349,13 @@ export function MetricForm({
 
       <MetricPreview draft={previewDraft} rows={rows} previewDimension={previewDimension} />
 
-      <div className='flex justify-end gap-2'>
-        <Button variant='outline' onClick={onCancel}>
-          Cancelar
+      <div className='flex items-center justify-between gap-2 border-t pt-3 mt-4'>
+        <Button type='button' variant='outline' onClick={onCancel} className='flex items-center gap-1.5'>
+          <ArrowLeft className='size-4' />
+          Atrás / Volver
         </Button>
         <Button onClick={handleSubmit} disabled={!canSave}>
-          Guardar
+          Guardar métrica
         </Button>
       </div>
     </div>

@@ -98,8 +98,8 @@ export class RestAPIConnector extends BaseConnector {
     const body =
       asForm && authBody
         ? new URLSearchParams(
-            Object.entries(authBody).map(([k, v]) => [k, String(v)])
-          ).toString()
+          Object.entries(authBody).map(([k, v]) => [k, String(v)])
+        ).toString()
         : authBody;
 
     let token: unknown;
@@ -122,8 +122,7 @@ export class RestAPIConnector extends BaseConnector {
         : response.data;
     } catch (error) {
       throw new Error(
-        `Error obteniendo token de autenticación: ${
-          error instanceof Error ? error.message : String(error)
+        `Error obteniendo token de autenticación: ${error instanceof Error ? error.message : String(error)
         }`
       );
     }

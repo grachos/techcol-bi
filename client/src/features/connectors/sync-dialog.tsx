@@ -124,7 +124,7 @@ export function SyncDialog({ connector, open, onOpenChange, onSaved }: SyncDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-w-[95vw] overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t('Sync')} — {connector.name}</DialogTitle>
           <DialogDescription>
@@ -132,17 +132,17 @@ export function SyncDialog({ connector, open, onOpenChange, onSaved }: SyncDialo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-full overflow-hidden">
           {/* Estado actual */}
-          <div className="flex items-center gap-2 rounded-md border p-3 text-sm">
+          <div className="flex items-start gap-2 rounded-md border p-3 text-sm max-w-full overflow-hidden">
             {isSyncing ? (
-              <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+              <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground mt-0.5" />
             ) : s?.status === 'error' ? (
-              <AlertTriangle className="size-4 shrink-0 text-destructive" />
+              <AlertTriangle className="size-4 shrink-0 text-destructive mt-0.5" />
             ) : (
-              <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="size-4 shrink-0 text-emerald-600 mt-0.5" />
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-hidden">
               {isSyncing ? (
                 <span>{t('Syncing…')}</span>
               ) : s?.last_sync_at ? (
@@ -156,7 +156,9 @@ export function SyncDialog({ connector, open, onOpenChange, onSaved }: SyncDialo
                 <span className="text-muted-foreground">{t('Never synced — data comes live on each load until then.')}</span>
               )}
               {s?.status === 'error' && s.last_error && (
-                <p className="truncate text-xs text-destructive">{s.last_error}</p>
+                <p className="break-words whitespace-pre-wrap max-h-36 overflow-y-auto mt-1 text-xs text-destructive font-mono bg-destructive/5 p-2 rounded border border-destructive/20">
+                  {s.last_error}
+                </p>
               )}
             </div>
           </div>

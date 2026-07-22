@@ -7,7 +7,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? "development",
   clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173",
   encryptionKey: process.env.ENCRYPTION_KEY ?? "",
-  jwtSecret: process.env.JWT_SECRET ?? "",
+  jwtSecret: process.env.JWT_SECRET || "default_dev_jwt_secret_bi_techcol_key_123456789",
   groqApiKey: process.env.GROQ_API_KEY ?? "",
   db: {
     host: process.env.DB_HOST ?? "localhost",
