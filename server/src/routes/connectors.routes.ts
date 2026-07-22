@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { serverError } from "../utils/http-error";
 import { pool } from "../db";
 import { requireAdmin } from "../middleware/auth";
 import { canReadConnector } from "../services/access";
@@ -40,7 +41,7 @@ router.get("/", requireAdmin, async (req: Request, res: Response) => {
     );
     res.json(rows);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -65,7 +66,7 @@ router.get("/:id", requireAdmin, async (req: Request, res: Response) => {
       config: maskSecrets(connector.type, config as Record<string, unknown>),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -95,7 +96,7 @@ router.post("/", requireAdmin, async (req: Request, res: Response) => {
     );
     res.status(201).json({ id: result.insertId, name, type });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -231,7 +232,7 @@ router.get("/:id/data", async (req: Request, res: Response) => {
       truncated,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -258,7 +259,7 @@ router.put("/:id/sync-config", requireAdmin, async (req: Request, res: Response)
     }
     res.json({ ok: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -281,7 +282,7 @@ router.post("/:id/sync", requireAdmin, async (req: Request, res: Response) => {
     const result = await runSync(connector, from || to ? { from, to } : undefined);
     res.json({ status: "idle", ...result });
   } catch (error: any) {
-    res.status(500).json({ error: error.message, status: "error" });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -301,7 +302,7 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
     );
     res.json(rows[0] ?? { status: "idle", last_sync_at: null, row_count: null });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -330,7 +331,7 @@ router.post("/:id/aggregate", async (req: Request, res: Response) => {
     const result = await runAggregateCached(connector, params, filters, mode, query, calc);
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -430,7 +431,7 @@ router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
 
     res.json({ id: connector.id, name, type: connector.type });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 
@@ -446,7 +447,7 @@ router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
     }
     res.json({ deleted: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "connectors", error);
   }
 });
 

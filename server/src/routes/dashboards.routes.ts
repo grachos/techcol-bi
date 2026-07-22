@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { serverError } from "../utils/http-error";
 import { randomBytes } from "crypto";
 import { pool } from "../db";
 import { requireAuth, requireAdmin } from "../middleware/auth";
@@ -185,7 +186,7 @@ router.get("/share/:token", async (req: Request, res: Response) => {
 
     res.json({ ...dashboard, widgets });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -222,7 +223,7 @@ router.get(
       const { data: rowsOut, truncated } = truncateRows(sourceRows);
       res.json({ id: connector.id, type: connector.type, data: rowsOut, truncated });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      serverError(res, "dashboards", error);
     }
   }
 );
@@ -263,7 +264,7 @@ router.post(
       );
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      serverError(res, "dashboards", error);
     }
   }
 );
@@ -300,7 +301,7 @@ router.get("/", async (req: Request, res: Response) => {
       }))
     );
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -317,7 +318,7 @@ router.post("/", requireAdmin, async (req: Request, res: Response) => {
     );
     res.status(201).json({ id: result.insertId, name });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -375,7 +376,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
     res.json({ ...dashboard, widgets });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -415,7 +416,7 @@ router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
     }
     res.json({ id: Number(req.params.id) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -434,7 +435,7 @@ router.put("/:id/last-query", requireAdmin, async (req: Request, res: Response) 
     }
     res.json({ saved: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -450,7 +451,7 @@ router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
     }
     res.json({ deleted: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -529,7 +530,7 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
     );
     res.status(201).json({ id: result.insertId });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -625,7 +626,7 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
     }
     res.json({ updated: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -657,7 +658,7 @@ router.put("/:id/layout", requireAdmin, async (req: Request, res: Response) => {
     );
     res.json({ updated: items.length });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -676,7 +677,7 @@ router.delete("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: 
     }
     res.json({ deleted: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -707,7 +708,7 @@ router.post("/:id/share", requireAdmin, async (req: Request, res: Response) => {
 
     res.json({ shareToken });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 
@@ -722,7 +723,7 @@ router.delete("/:id/share", requireAdmin, async (req: Request, res: Response) =>
     ]);
     res.json({ revoked: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "dashboards", error);
   }
 });
 

@@ -60,8 +60,9 @@ export function UserAuthForm({
   async function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
-      const { token, user } = await authApi.login(data.email, data.password)
-      auth.setAccessToken(token)
+      // La sesion queda en una cookie httpOnly que emite el servidor; aqui
+      // solo se guarda el usuario para el menu y los guards.
+      const { user } = await authApi.login(data.email, data.password)
       auth.setUser(user)
       toast.success(t('Welcome back, {{email}}!', { email: data.email }))
       navigate({ to: redirectTo || '/', replace: true })

@@ -1,7 +1,12 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { pool } from "../db";
-import { signToken, requireAuth } from "../middleware/auth";
+import {
+  signToken,
+  requireAuth,
+  setSessionCookie,
+  clearSessionCookie,
+} from "../middleware/auth";
 
 const router = Router();
 
@@ -80,8 +85,10 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Credenciales invalidas" });
     }
 
-    const token = signToken(user.id);
-    res.json({ token, user: await loadSessionUser(user.id) });
+    // El token va SOLO en la cookie httpOnly: si viajara tambien en el cuerpo,
+    // el JavaScript de la pagina volveria a tenerlo y un XSS podria robarlo.
+    setSessionCookie(res, signToken(user.id));
+    res.json({ user: await loadSessionUser(user.id) });
   } catch (error: any) {
     console.error("[auth] login", error);
     res.status(500).json({ error: "No se pudo iniciar sesion" });
@@ -129,12 +136,20 @@ router.post("/setup-password", async (req: Request, res: Response) => {
       user.id,
     ]);
 
-    const token = signToken(user.id);
-    res.json({ token, user: await loadSessionUser(user.id) });
+    // El token va SOLO en la cookie httpOnly: si viajara tambien en el cuerpo,
+    // el JavaScript de la pagina volveria a tenerlo y un XSS podria robarlo.
+    setSessionCookie(res, signToken(user.id));
+    res.json({ user: await loadSessionUser(user.id) });
   } catch (error: any) {
     console.error("[auth] setup-password", error);
     res.status(500).json({ error: "No se pudo configurar la contrasena" });
   }
+});
+
+// Cerrar sesion: borra la cookie httpOnly (el cliente no puede hacerlo solo).
+router.post("/logout", (_req: Request, res: Response) => {
+  clearSessionCookie(res);
+  res.json({ ok: true });
 });
 
 // Usuario actual (para restaurar sesion al recargar la app). Incluye rol y

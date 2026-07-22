@@ -5,6 +5,7 @@ import express, {
 } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
@@ -25,9 +26,14 @@ app.use(compression());
 app.use(
   cors({
     origin: config.clientOrigin,
+    // La sesion viaja en cookie: sin esto el navegador no la manda ni la
+    // acepta cuando el cliente esta en otro origen.
+    credentials: true,
   })
 );
 app.use(express.json({ limit: "1mb" }));
+// Lee la cookie de sesion (req.cookies) para requireAuth
+app.use(cookieParser());
 
 // Limite de peticiones por IP para mitigar abuso / fuerza bruta
 app.use(
@@ -73,6 +79,13 @@ app.use("/api/users", usersRoutes);
 
 // Copiloto de IA (Groq): construye/edita widgets, solo administradores
 app.use("/api/ai", requireAuth, requireAdmin, aiRoutes);
+
+// Ruta de API inexistente: responde JSON. Sin esto Express devuelve su pagina
+// HTML por defecto, que delata el stack y ademas rompe al cliente, que espera
+// JSON en toda respuesta de /api.
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Recurso no encontrado" });
+});
 
 // Manejador global: registra el detalle en el servidor y responde generico
 // para no filtrar internals al cliente.

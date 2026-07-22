@@ -6,15 +6,10 @@ import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location }) => {
     const { auth } = useAuthStore.getState()
-    if (!auth.accessToken) {
-      throw redirect({
-        to: '/sign-in',
-        search: { redirect: location.href },
-      })
-    }
-    // Al recargar la app el token persiste pero el usuario (rol/permisos) no.
-    // Se restaura desde /me para que los guards de las rutas hijas tengan el
-    // rol disponible. Si el token ya no es valido, se cierra sesion.
+    // La sesion vive en una cookie httpOnly que JavaScript no puede leer, asi
+    // que la unica forma de saber si hay sesion valida es preguntarle al
+    // servidor. /me tambien devuelve rol y permisos, que los guards de las
+    // rutas hijas necesitan. Se consulta solo si aun no hay usuario en memoria.
     if (!auth.user?.role) {
       try {
         auth.setUser(await authApi.me())

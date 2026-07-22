@@ -63,11 +63,7 @@ export function SignUpForm({
   async function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true)
     try {
-      const { token, user } = await authApi.setupPassword(
-        data.email,
-        data.password
-      )
-      auth.setAccessToken(token)
+      const { user } = await authApi.setupPassword(data.email, data.password)
       auth.setUser(user)
       toast.success(t('Password set. Welcome!'))
       navigate({ to: '/', replace: true })

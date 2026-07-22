@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { serverError } from "../utils/http-error";
 import { pool } from "../db";
 import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
@@ -206,7 +207,7 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
       explanation: typeof result?.explanation === "string" ? result.explanation : "",
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "ai", error);
   }
 });
 
@@ -348,7 +349,7 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
       explanation: typeof result?.explanation === "string" ? result.explanation : "",
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "ai", error);
   }
 });
 
@@ -408,7 +409,7 @@ Responde SOLO con un objeto JSON:
 
     res.json({ query, explanation });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "ai", error);
   }
 });
 
@@ -522,7 +523,7 @@ Responde SOLO con un objeto JSON:
 
     res.json({ query: query_fixed, explanation });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    serverError(res, "ai", error);
   }
 });
 

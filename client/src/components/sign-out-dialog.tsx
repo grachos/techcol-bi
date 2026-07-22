@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
+import { authApi } from '@/lib/auth-api'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 
 interface SignOutDialogProps {
@@ -12,7 +13,10 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
   const location = useLocation()
   const { auth } = useAuthStore()
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    // La cookie es httpOnly: solo el servidor puede borrarla. Si la peticion
+    // falla igual se limpia el estado local y se sale.
+    await authApi.logout().catch(() => {})
     auth.reset()
     // Preserve current location for redirect after sign-in
     const currentPath = location.href

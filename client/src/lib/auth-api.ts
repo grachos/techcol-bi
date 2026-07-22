@@ -1,8 +1,10 @@
 /**
- * Cliente de autenticacion. login/setupPassword usan fetch plano (sin
- * Authorization: aun no hay sesion). me() usa apiFetch porque ya la exige.
+ * Cliente de autenticacion.
+ *
+ * No maneja tokens: el servidor entrega la sesion como cookie httpOnly y el
+ * navegador la adjunta sola. Por eso todo va con fetch plano + credentials,
+ * sin cabecera Authorization.
  */
-import { apiFetch } from './api-fetch'
 
 export interface UserPermissions {
   pageNames: string[]
@@ -18,7 +20,6 @@ export interface AuthUser {
 }
 
 export interface LoginResult {
-  token: string
   user: AuthUser
 }
 
@@ -30,21 +31,30 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+function post(path: string, body?: unknown): Promise<Response> {
+  return fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+}
+
 export const authApi = {
   login: (email: string, password: string): Promise<LoginResult> =>
-    fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }).then((r) => handle(r)),
+    post('/api/auth/login', { email, password }).then((r) => handle(r)),
 
   setupPassword: (email: string, password: string): Promise<LoginResult> =>
-    fetch('/api/auth/setup-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }).then((r) => handle(r)),
+    post('/api/auth/setup-password', { email, password }).then((r) => handle(r)),
 
+  logout: (): Promise<{ ok: true }> =>
+    post('/api/auth/logout').then((r) => handle(r)),
+
+  /**
+   * Usuario de la sesion actual. Usa fetch plano a proposito: es la sonda con
+   * la que el guard de rutas decide si hay sesion, y debe poder recibir un 401
+   * sin disparar la redireccion global de apiFetch.
+   */
   me: (): Promise<AuthUser> =>
-    apiFetch('/api/auth/me').then((r) => handle(r)),
+    fetch('/api/auth/me', { credentials: 'same-origin' }).then((r) => handle(r)),
 }
