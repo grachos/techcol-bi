@@ -42,7 +42,16 @@ const WIDGET_COLORS = [
   "purple",
   "teal",
 ] as const;
-type WidgetColor = (typeof WIDGET_COLORS)[number];
+type WidgetColor = (typeof WIDGET_COLORS)[number] | string;
+
+export function isValidWidgetColor(color: unknown): boolean {
+  if (typeof color !== "string" || !color.trim()) return false;
+  const clean = color.trim();
+  if (WIDGET_COLORS.includes(clean as any)) return true;
+  if (/^#([0-9A-Fa-f]{3,8})$/.test(clean)) return true;
+  if (/^(rgb|hsl)a?\([^)]+\)$/i.test(clean)) return true;
+  return false;
+}
 
 // 'clock' no necesita un conector; los demas kinds funcionan mejor con uno
 // (calendar y filter_date lo usan solo como sugerencia, no es estrictamente obligatorio)
@@ -532,9 +541,9 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
       error: `Tipo de grafica invalido. Soportados: ${CHART_TYPES.join(", ")}`,
     });
   }
-  if (!WIDGET_COLORS.includes(color)) {
+  if (!isValidWidgetColor(color)) {
     return res.status(400).json({
-      error: `Color invalido. Soportados: ${WIDGET_COLORS.join(", ")}`,
+      error: `Color invalido. Usa un color prestablecido (${WIDGET_COLORS.join(", ")}) o un codigo Hex como #F54927`,
     });
   }
   if (aggregation && !AGGREGATIONS.includes(aggregation)) {
@@ -599,9 +608,9 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
       error: `Tipo de grafica invalido. Soportados: ${CHART_TYPES.join(", ")}`,
     });
   }
-  if (color !== undefined && !WIDGET_COLORS.includes(color)) {
+  if (color !== undefined && !isValidWidgetColor(color)) {
     return res.status(400).json({
-      error: `Color invalido. Soportados: ${WIDGET_COLORS.join(", ")}`,
+      error: `Color invalido. Usa un color prestablecido (${WIDGET_COLORS.join(", ")}) o un codigo Hex como #F54927`,
     });
   }
   if (aggregation && !AGGREGATIONS.includes(aggregation)) {

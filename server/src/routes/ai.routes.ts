@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { serverError } from "../utils/http-error";
+import { isValidWidgetColor } from "./dashboards.routes";
 import { pool } from "../db";
 import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
@@ -237,9 +238,10 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
       ? result.chartType
       : "bar";
 
-    const color: WidgetColor = WIDGET_COLORS.includes(result?.color)
-      ? result.color
-      : "primary";
+    const color: string =
+      typeof result?.color === "string" && isValidWidgetColor(result.color)
+        ? result.color
+        : "primary";
 
     // Colección de todos los campos válidos (columnas crudas + métricas calculadas) para el conector elegido
     const validFields = new Set<string>();
@@ -404,7 +406,8 @@ router.post("/edit-widget", async (req: Request, res: Response) => {
     }
     if (
       COLORABLE_KINDS.includes(widget.kind) &&
-      WIDGET_COLORS.includes(result?.color)
+      typeof result?.color === "string" &&
+      isValidWidgetColor(result.color)
     ) {
       patch.color = result.color;
     }
