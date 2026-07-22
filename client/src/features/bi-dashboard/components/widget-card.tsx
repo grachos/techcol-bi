@@ -245,7 +245,17 @@ function ChartWidgetBody({
     const isDateColumn = /^\d{4}[-/]\d{2}[-/]\d{2}/.test(sampleVal) || /^\d{4}/.test(sampleVal)
 
     // Agrupar filas por valor del eje X (o por año si es columna de fecha)
-    const map = new Map<string, { sum: number; count: number; min: number; max: number; originalRow: Row }>()
+    const map = new Map<
+      string,
+      {
+        sum: number
+        count: number
+        min: number
+        max: number
+        distinctMonths: Set<string>
+        originalRow: Row
+      }
+    >()
 
     for (const r of filteredRows) {
       let rawX = String(r[xKey] ?? '').trim()
@@ -254,6 +264,12 @@ function ChartWidgetBody({
       let groupKey = rawX
       if (isDateColumn && rawX.length >= 4 && /^\d{4}/.test(rawX)) {
         groupKey = rawX.substring(0, 4) // extrae año (ej. "2024")
+      }
+
+      // Extraer clave de mes (ej. "2026-07") para calcular promedios mensuales reales sin distorsionar años incompletos
+      let monthKey = rawX
+      if (rawX.length >= 7 && /^\d{4}[-/]\d{2}/.test(rawX)) {
+        monthKey = rawX.substring(0, 7)
       }
 
       const yVal = Number(r[yKey])
@@ -266,6 +282,7 @@ function ChartWidgetBody({
           count: 1,
           min: validY,
           max: validY,
+          distinctMonths: new Set([monthKey]),
           originalRow: r,
         })
       } else {
@@ -273,6 +290,7 @@ function ChartWidgetBody({
         existing.count += 1
         existing.min = Math.min(existing.min, validY)
         existing.max = Math.max(existing.max, validY)
+        existing.distinctMonths.add(monthKey)
       }
     }
 
@@ -282,10 +300,17 @@ function ChartWidgetBody({
 
     const aggregated: Row[] = Array.from(map.entries()).map(([groupKey, stats]) => {
       let finalValue = stats.sum
-      if (aggType === 'avg') finalValue = stats.count > 0 ? stats.sum / stats.count : 0
-      else if (aggType === 'count') finalValue = stats.count
-      else if (aggType === 'min') finalValue = stats.min
-      else if (aggType === 'max') finalValue = stats.max
+      if (aggType === 'avg') {
+        // Promedio mensual real: si 2026 solo lleva 7 meses transcurridos, se divide por 7 y no por 12
+        const monthCount = stats.distinctMonths.size > 0 ? stats.distinctMonths.size : 1
+        finalValue = stats.sum / monthCount
+      } else if (aggType === 'count') {
+        finalValue = stats.count
+      } else if (aggType === 'min') {
+        finalValue = stats.min
+      } else if (aggType === 'max') {
+        finalValue = stats.max
+      }
 
       return {
         ...stats.originalRow,

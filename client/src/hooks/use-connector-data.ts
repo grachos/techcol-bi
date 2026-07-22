@@ -47,6 +47,7 @@ export function useConnectorData(
         : biApi.data(connectorId as number, fullParams),
     enabled: connectorId != null,
     staleTime: Infinity,
+    placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
