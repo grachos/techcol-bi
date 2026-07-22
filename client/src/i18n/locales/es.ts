@@ -882,6 +882,10 @@ export const es: Record<string, string> = {
   'Group by columns': 'Columnas para agrupar',
   'Pick one or more columns to build the row hierarchy, in order.':
     'Elige una o más columnas para armar la jerarquía de filas, en orden.',
+  'Order (first = outermost level). Use the arrows to reorder.':
+    'Orden (primero = nivel más externo). Usa las flechas para reordenar.',
+  'Order (first = leftmost column). Use the arrows to reorder.':
+    'Orden (primero = columna más a la izquierda). Usa las flechas para reordenar.',
   'Value columns': 'Columnas de valor',
   'Numeric columns to total per group.':
     'Columnas numéricas a totalizar por grupo.',

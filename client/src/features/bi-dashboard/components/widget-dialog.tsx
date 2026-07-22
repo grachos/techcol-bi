@@ -469,6 +469,14 @@ export function WidgetDialog({
     setValueColumns((prev) =>
       prev.includes(col) ? prev.filter((c) => c !== col) : [...prev, col]
     )
+  const moveValueColumn = (index: number, direction: -1 | 1) =>
+    setValueColumns((prev) => {
+      const next = [...prev]
+      const target = index + direction
+      if (target < 0 || target >= next.length) return prev
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -845,6 +853,18 @@ export function WidgetDialog({
                 <p className='text-muted-foreground text-xs'>
                   {t('Numeric columns to total per group.')}
                 </p>
+                {valueColumns.length > 0 && (
+                  <>
+                    <p className='text-muted-foreground text-xs'>
+                      {t('Order (first = leftmost column). Use the arrows to reorder.')}
+                    </p>
+                    <OrderedColumnList
+                      values={valueColumns}
+                      onMove={moveValueColumn}
+                      onRemove={toggleValueColumn}
+                    />
+                  </>
+                )}
                 <ColumnMultiSelect
                   values={valueColumns}
                   onToggle={toggleValueColumn}
