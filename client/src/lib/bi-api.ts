@@ -41,6 +41,18 @@ export interface StatAggQuery {
   granoKey?: string | null
 }
 
+/** Valores unicos de una columna para un widget de filtro (se calculan en el servidor). */
+export interface DistinctBody {
+  column: string
+  params?: Record<string, string>
+  calculatedMeasures?: unknown[]
+}
+
+export interface DistinctResult {
+  values: string[]
+  truncated: boolean
+}
+
 export interface StatAggBody {
   params?: Record<string, string>
   activeFilters?: unknown
@@ -233,6 +245,13 @@ export const biApi = {
       body: JSON.stringify(body),
     }).then((r) => handle(r)),
 
+  distinct: (id: number, body: DistinctBody): Promise<DistinctResult> =>
+    apiFetch(`/api/connectors/${id}/distinct`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => handle(r)),
+
   aggregateTree: (id: number, body: TreeAggBody): Promise<TreeAggResult> =>
     apiFetch(`/api/connectors/${id}/aggregate`, {
       method: 'POST',
@@ -279,6 +298,20 @@ export const biApi = {
     ): Promise<ConnectorData> =>
       fetch(
         `/api/dashboards/share/${token}/connectors/${connectorId}/data${toQuery(params)}`
+      ).then((r) => handle(r)),
+
+    distinctShared: (
+      token: string,
+      connectorId: number,
+      body: DistinctBody
+    ): Promise<DistinctResult> =>
+      fetch(
+        `/api/dashboards/share/${token}/connectors/${connectorId}/distinct`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }
       ).then((r) => handle(r)),
 
     aggregateShared: (

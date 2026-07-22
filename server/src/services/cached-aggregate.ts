@@ -42,7 +42,7 @@ export async function runAggregateCached(
 
   const key = JSON.stringify([
     connector.id,
-    getDataVersion(connector.id),
+    await getDataVersion(connector.id),
     mode,
     query,
     activeFilters,

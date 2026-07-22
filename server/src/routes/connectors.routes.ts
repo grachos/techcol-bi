@@ -10,6 +10,7 @@ import { buildResponsePreview } from "../utils/response-preview";
 import { findTableCandidates } from "../utils/table-finder";
 import { invalidateConnectorCache } from "../services/connector-cache";
 import { runAggregateCached } from "../services/cached-aggregate";
+import { getDistinctValues } from "../services/distinct-values";
 import { runSync } from "../services/sync-service";
 import { getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
@@ -329,6 +330,36 @@ router.post("/:id/aggregate", async (req: Request, res: Response) => {
     const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
     const query = req.body?.query ?? {};
     const result = await runAggregateCached(connector, params, filters, mode, query, calc);
+    res.json(result);
+  } catch (error: any) {
+    serverError(res, "connectors", error);
+  }
+});
+
+// Valores unicos de una columna para los widgets de filtro. Se calculan en el
+// servidor (SQL para columnas reales, evaluacion proyectada para calculadas)
+// en vez de mandar las filas crudas al navegador.
+router.post("/:id/distinct", async (req: Request, res: Response) => {
+  try {
+    if (!(await canReadConnector(req.params.id, req.userId!, req.userRole!))) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+    const column = req.body?.column;
+    if (!column || typeof column !== "string") {
+      return res.status(400).json({ error: "Campo requerido: column" });
+    }
+
+    const [rows]: any = await pool.query("SELECT * FROM connectors WHERE id = ?", [
+      req.params.id,
+    ]);
+    const connector: ConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    const params = parseRuntimeParams(req.body?.params);
+    const calc = req.body?.calculatedMeasures ?? [];
+    const result = await getDistinctValues(connector, column, params, calc);
     res.json(result);
   } catch (error: any) {
     serverError(res, "connectors", error);

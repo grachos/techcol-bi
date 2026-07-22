@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
-import { useWidgetData } from '@/hooks/use-widget-data'
+import { useDistinctValues } from '@/hooks/use-distinct-values'
+import { monthIndexEs } from '@/lib/semantic-layer/expression'
 import { type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
@@ -25,18 +26,13 @@ export function SelectFilterWidget({
   onChange,
 }: SelectFilterWidgetProps) {
   const { t } = useTranslation()
-  // Las opciones se calculan sobre `rows` (todas las filas traidas, sin el
-  // recorte de applyFilters): un select de valores no debe reducirse por los
-  // demas filtros activos, solo la consulta al origen usa el rango de fechas.
-  //
-  // Se pide solo `filterColumn`: el servidor valida contra el esquema real y
-  // cae solo a SELECT * si el nombre no es una columna real (ej. si en algun
-  // momento se filtra por una medida calculada) -- pedir la columna angosta
-  // es seguro, nunca rompe el caso donde no aplica.
-  const { rows, error, isLoading, needsDateFilter } = useWidgetData(
+  // Los valores unicos los calcula el SERVIDOR (SQL para columnas reales,
+  // evaluacion proyectada para calculadas como mes/anio): antes se bajaban las
+  // filas crudas para sacarlos en el navegador, lo que en una columna calculada
+  // significaba traerse el dataset entero.
+  const { values, error, isLoading, needsDateFilter } = useDistinctValues(
     widget,
-    activeFilters,
-    widget.filterColumn ? [widget.filterColumn] : undefined
+    activeFilters
   )
   const restoredValue = widget.filterColumn ? activeFilters[widget.filterColumn] : undefined
   const [selectedValues, setSelectedValues] = useState<Set<string>>(
@@ -44,15 +40,16 @@ export function SelectFilterWidget({
   )
   const [popoverOpen, setPopoverOpen] = useState(false)
 
+  // Si los valores son nombres de mes se ordenan cronologicamente; alfabetico
+  // pondria "Abril" antes que "Enero", igual que pasaba en el eje del grafico.
   const options = useMemo(() => {
-    if (!widget.filterColumn) return []
-    const values = new Set<string>()
-    rows.forEach((r) => {
-      const v = r[widget.filterColumn as string]
-      if (v !== null && v !== undefined) values.add(String(v))
-    })
-    return Array.from(values).sort()
-  }, [rows, widget.filterColumn])
+    const sorted = [...values]
+    const allMonths =
+      sorted.length > 0 && sorted.every((v) => monthIndexEs(v) !== -1)
+    return allMonths
+      ? sorted.sort((a, b) => monthIndexEs(a) - monthIndexEs(b))
+      : sorted.sort()
+  }, [values])
 
   // Una seleccion persistida (guardada en el servidor como "ultima consulta")
   // puede quedar obsoleta: si el valor ya no aparece entre las filas actuales

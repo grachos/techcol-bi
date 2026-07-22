@@ -20,7 +20,7 @@ const engine = new ExpressionEngine();
  * recursivamente su formula hasta llegar a columnas/medidas que NO son
  * calculadas -- esas se asumen columnas crudas de la fuente.
  */
-function resolveRawCandidates(names: Iterable<string>, calculatedMeasures: Measure[]): Set<string> {
+export function resolveRawCandidates(names: Iterable<string>, calculatedMeasures: Measure[]): Set<string> {
   const byName = new Map(calculatedMeasures.map((m) => [m.name, m]));
   const raw = new Set<string>();
   const visiting = new Set<string>();

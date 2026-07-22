@@ -7,6 +7,7 @@ import { canReadDashboard } from "../services/access";
 import { truncateRows } from "../utils/security";
 import { parseRuntimeParams, parseColumnsParam } from "../utils/runtime-params";
 import { runAggregateCached } from "../services/cached-aggregate";
+import { getDistinctValues } from "../services/distinct-values";
 import { getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorType } from "../connectors/BaseConnector";
 
@@ -222,6 +223,50 @@ router.get(
 
       const { data: rowsOut, truncated } = truncateRows(sourceRows);
       res.json({ id: connector.id, type: connector.type, data: rowsOut, truncated });
+    } catch (error: any) {
+      serverError(res, "dashboards", error);
+    }
+  }
+);
+
+// Valores unicos de una columna para la vista compartida (equivalente publico
+// de POST /connectors/:id/distinct): alimenta los widgets de filtro sin
+// exponer las filas crudas.
+router.post(
+  "/share/:token/connectors/:connectorId/distinct",
+  async (req: Request, res: Response) => {
+    try {
+      const column = req.body?.column;
+      if (!column || typeof column !== "string") {
+        return res.status(400).json({ error: "Campo requerido: column" });
+      }
+      const [rows]: any = await pool.query(
+        `SELECT c.id, c.type, c.config, c.date_column
+         FROM dashboard_shares s
+         JOIN dashboard_widgets w
+           ON w.dashboard_id = s.dashboard_id AND w.connector_id = ?
+         JOIN connectors c ON c.id = w.connector_id
+         WHERE s.share_token = ?
+         LIMIT 1`,
+        [req.params.connectorId, req.params.token]
+      );
+      const connector = rows[0];
+      if (!connector) {
+        return res.status(404).json({ error: "Conector no encontrado" });
+      }
+
+      const result = await getDistinctValues(
+        {
+          id: connector.id,
+          type: connector.type as ConnectorType,
+          config: connector.config,
+          date_column: connector.date_column,
+        },
+        column,
+        parseRuntimeParams(req.body?.params),
+        req.body?.calculatedMeasures ?? []
+      );
+      res.json(result);
     } catch (error: any) {
       serverError(res, "dashboards", error);
     }

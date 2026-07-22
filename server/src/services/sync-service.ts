@@ -11,7 +11,6 @@ import { decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { ConnectorType } from "../connectors/BaseConnector";
 import { fullRefresh, incrementalRefresh, getMaxDate } from "./analytics-db";
-import { bumpDataVersion } from "./data-version";
 import { purgeExpiredConnectorData } from "./connector-cache";
 
 export interface ConnectorSyncRow {
@@ -128,7 +127,6 @@ export async function runSync(
       : null;
 
     await markDone(connector.id, watermark, rowCount);
-    bumpDataVersion(connector.id);
     return { rowCount, watermark };
   } catch (error: any) {
     await markError(connector.id, error?.message ?? String(error));
