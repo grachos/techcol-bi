@@ -45,6 +45,7 @@ const AUTO_VALUE = '__auto__'
 
 const CHART_TYPE_LABELS: Record<ChartType, string> = {
   bar: 'Bar chart',
+  gradient_bar: 'Barras por escala de valor (calor)',
   line: 'Line chart',
   area: 'Area chart',
   pie: 'Pie chart',

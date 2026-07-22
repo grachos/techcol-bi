@@ -5,9 +5,9 @@ import { apiFetch } from './api-fetch'
 import type { ConnectorType } from './bi-api'
 import type { ActiveFilters } from './widget-filters'
 
-export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'table'
+export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'table' | 'gradient_bar'
 
-export const CHART_TYPES: ChartType[] = ['bar', 'line', 'area', 'pie', 'table']
+export const CHART_TYPES: ChartType[] = ['bar', 'line', 'area', 'pie', 'table', 'gradient_bar']
 
 export type WidgetKind =
   | 'chart'

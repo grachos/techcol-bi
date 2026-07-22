@@ -7,6 +7,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -414,6 +415,63 @@ function renderChart(
           ))}
         </Pie>
       </PieChart>
+    )
+  }
+
+  if (chartType === 'gradient_bar') {
+    const values = data.map((d) => Number(d[yKey]) || 0)
+    const minVal = values.length > 0 ? Math.min(...values) : 0
+    const maxVal = values.length > 0 ? Math.max(...values) : 1
+
+    const getHeatColor = (val: number) => {
+      const ratio = maxVal === minVal ? 0.5 : Math.max(0, Math.min(1, (val - minVal) / (maxVal - minVal)))
+      // Interpolacion de HSL desde Amarillo Dorado (48) hasta Verde Esmeralda/Cian (175)
+      const hue = 48 + ratio * (175 - 48)
+      return `hsl(${hue}, 85%, 45%)`
+    }
+
+    return (
+      <div className='flex h-full w-full items-center justify-between gap-1 overflow-hidden'>
+        <div className='min-w-0 flex-1 h-full'>
+          <ResponsiveContainer width='100%' height='100%'>
+            <BarChart data={data} margin={compact ? { top: 12, right: 4, left: 4, bottom: 12 } : { top: 20, right: 8, left: -12, bottom: 20 }}>
+              <CartesianGrid strokeDasharray='3 3' opacity={0.2} />
+              <XAxis
+                {...xAxisProps}
+                angle={-35}
+                textAnchor='end'
+                height={28}
+                fontSize={10}
+              />
+              <YAxis {...yAxisProps} />
+              <Tooltip cursor={{ fill: 'transparent' }} contentStyle={tooltipStyle} labelStyle={{ color: '#0f172a', fontWeight: 'bold' }} itemStyle={{ color: '#0f172a' }} />
+              <Bar dataKey={yKey} radius={[4, 4, 0, 0]}>
+                {!compact && (
+                  <LabelList
+                    dataKey={yKey}
+                    position='top'
+                    angle={-90}
+                    offset={14}
+                    formatter={(v: number) => formatCompactNumber(Number(v))}
+                    style={{ fontSize: 9, fontWeight: 600, fill: 'var(--foreground)' }}
+                  />
+                )}
+                {data.map((entry, index) => {
+                  const val = Number(entry[yKey]) || 0
+                  return <Cell key={`cell-${index}`} fill={getHeatColor(val)} />
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {!compact && (
+          <div className='flex flex-col items-center justify-between h-[80%] text-[9px] text-muted-foreground px-1 shrink-0 select-none border-l pl-1.5'>
+            <span className='font-semibold text-teal-600 dark:text-teal-400'>{formatCompactNumber(maxVal)}</span>
+            <div className='w-2 flex-1 my-1 rounded-full bg-gradient-to-t from-[hsl(48,85%,45%)] via-[hsl(111,85%,45%)] to-[hsl(175,85%,45%)]' />
+            <span className='font-semibold text-amber-600 dark:text-amber-400'>{formatCompactNumber(minVal)}</span>
+          </div>
+        )}
+      </div>
     )
   }
 

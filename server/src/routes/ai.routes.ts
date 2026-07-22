@@ -25,7 +25,7 @@ const WIDGET_KINDS = [
 ] as const;
 type WidgetKind = (typeof WIDGET_KINDS)[number];
 
-const CHART_TYPES = ["bar", "line", "area", "pie", "table"] as const;
+const CHART_TYPES = ["bar", "line", "area", "pie", "table", "gradient_bar"] as const;
 type ChartType = (typeof CHART_TYPES)[number];
 
 const AGGREGATIONS = ["sum", "avg", "count", "min", "max"] as const;
