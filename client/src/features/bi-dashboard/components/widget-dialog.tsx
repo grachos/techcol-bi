@@ -320,7 +320,7 @@ export function WidgetDialog({
       setChartType(patch.chartType ?? widget.chartType)
       setColor(patch.color ?? widget.color)
       const loadedXKeyRaw = (patch.xKey ?? widget.xKey) ?? ''
-      if (widget.kind === 'stat') {
+      if (widget.kind === 'stat' || widget.kind === 'chart') {
         const [statXKey, statGranoKey] = loadedXKeyRaw.split(',')
         setXKey(statXKey || '')
         setGranoKey(statGranoKey || '')
@@ -515,7 +515,7 @@ export function WidgetDialog({
     const wantsYKey = hasXY || hasColumnLists || kind === 'stat'
     const xKeyValue = hasColumnLists
       ? groupByColumns.join(',')
-      : kind === 'stat'
+      : (kind === 'stat' || kind === 'chart')
         ? (xKey || granoKey ? `${xKey},${granoKey}` : '')
         : xKey
     const yKeyValue = hasColumnLists ? valueColumns.join(',') : yKey
@@ -530,7 +530,7 @@ export function WidgetDialog({
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
-          aggregation: kind === 'stat' || kind === 'tree_grid' ? aggregation : undefined,
+          aggregation: kind === 'stat' || kind === 'tree_grid' || kind === 'chart' ? aggregation : undefined,
           targetValue: kind === 'stat' ? targetValueNum : undefined,
           targetLabel: kind === 'stat' ? targetLabel.trim() || null : undefined,
           filterColumn:
@@ -548,7 +548,7 @@ export function WidgetDialog({
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
-          aggregation: kind === 'stat' || kind === 'tree_grid' ? aggregation : undefined,
+          aggregation: kind === 'stat' || kind === 'tree_grid' || kind === 'chart' ? aggregation : undefined,
           targetValue: kind === 'stat' ? targetValueNum : undefined,
           targetLabel: kind === 'stat' ? targetLabel.trim() || null : undefined,
           filterColumn:
