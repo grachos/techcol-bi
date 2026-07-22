@@ -3,7 +3,6 @@ import {
   ChartColumn,
   Users,
   HelpCircle,
-  Command,
   Layers,
   Table2,
   LayoutGrid,

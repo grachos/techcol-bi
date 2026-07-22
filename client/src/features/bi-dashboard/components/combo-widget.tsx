@@ -73,7 +73,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
 
 
   const barColor = getWidgetColorCss(widget.color).solid
-  const lineColor = WIDGET_COLOR_CSS.pink.solid
+  const lineColor = getWidgetColorCss('pink').solid
   // Widget bajito: sin ejes para dejar todo el espacio a la grafica
   const compact = widget.layout.h <= 3
 
