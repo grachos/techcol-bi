@@ -238,15 +238,69 @@ function ChartWidgetBody({
     () => detectKeys(filteredRows, widget.xKey, widget.yKey),
     [filteredRows, widget.xKey, widget.yKey]
   )
-  const chartData = useMemo(
-    () =>
-      filteredRows.slice(0, MAX_CHART_POINTS).map((r) => ({
+  const chartData = useMemo(() => {
+    if (!xKey || !yKey || filteredRows.length === 0) {
+      return filteredRows.slice(0, MAX_CHART_POINTS).map((r) => ({
         ...r,
         [yKey]: Number(r[yKey]),
-      })),
-    [filteredRows, yKey]
-  )
-  const chartTruncated = filteredRows.length > MAX_CHART_POINTS
+      }))
+    }
+
+    const sampleVal = String(filteredRows[0][xKey] ?? '').trim()
+    const isDateColumn = /^\d{4}[-/]\d{2}[-/]\d{2}/.test(sampleVal) || /^\d{4}/.test(sampleVal)
+
+    // Agrupar filas por valor del eje X (o por año si es columna de fecha)
+    const map = new Map<string, { sum: number; count: number; min: number; max: number; originalRow: Row }>()
+
+    for (const r of filteredRows) {
+      let rawX = String(r[xKey] ?? '').trim()
+      if (!rawX) rawX = '(sin datos)'
+
+      let groupKey = rawX
+      if (isDateColumn && rawX.length >= 4 && /^\d{4}/.test(rawX)) {
+        groupKey = rawX.substring(0, 4) // extrae año (ej. "2024")
+      }
+
+      const yVal = Number(r[yKey])
+      const validY = isNaN(yVal) ? 0 : yVal
+
+      const existing = map.get(groupKey)
+      if (!existing) {
+        map.set(groupKey, {
+          sum: validY,
+          count: 1,
+          min: validY,
+          max: validY,
+          originalRow: r,
+        })
+      } else {
+        existing.sum += validY
+        existing.count += 1
+        existing.min = Math.min(existing.min, validY)
+        existing.max = Math.max(existing.max, validY)
+      }
+    }
+
+    const aggType = widget.aggregation ?? 'sum'
+    const aggregated: Row[] = Array.from(map.entries()).map(([groupKey, stats]) => {
+      let finalValue = stats.sum
+      if (aggType === 'avg') finalValue = stats.count > 0 ? stats.sum / stats.count : 0
+      else if (aggType === 'count') finalValue = stats.count
+      else if (aggType === 'min') finalValue = stats.min
+      else if (aggType === 'max') finalValue = stats.max
+
+      return {
+        ...stats.originalRow,
+        [xKey]: groupKey,
+        [yKey]: Number(finalValue.toFixed(4)),
+      }
+    })
+
+    aggregated.sort((a, b) => String(a[xKey]).localeCompare(String(b[xKey]), undefined, { numeric: true }))
+    return aggregated.slice(0, MAX_CHART_POINTS)
+  }, [filteredRows, xKey, yKey, widget.aggregation])
+
+  const chartTruncated = chartData.length >= MAX_CHART_POINTS
 
   if (isLoading) return <WidgetLoading />
   if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
