@@ -20,6 +20,32 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users
   ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NULL AFTER name;
 
+-- Rol y estado de la cuenta. 'admin' = control total (gestiona usuarios,
+-- conectores y dashboards). 'custom' = solo lectura, ve unicamente los
+-- dashboards y paginas que un admin le asigne. status='inactive' bloquea el
+-- ingreso de inmediato (requireAuth lo verifica en cada peticion).
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS role ENUM('admin', 'custom') NOT NULL DEFAULT 'custom' AFTER password_hash;
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS status ENUM('active', 'inactive') NOT NULL DEFAULT 'active' AFTER role;
+-- Paginas del menu que un usuario 'custom' puede abrir (los admin ven todo).
+-- Lista JSON de claves de pagina, ej. ["dashboard","help-center"].
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS page_access JSON NULL AFTER status;
+
+-- Dashboards asignados a un usuario 'custom' (solo lectura). Un admin ve y
+-- gestiona todos; el custom ve unicamente los que aparezcan aqui.
+CREATE TABLE IF NOT EXISTS user_dashboard_access (
+  user_id INT NOT NULL,
+  dashboard_id INT NOT NULL,
+  granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, dashboard_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (dashboard_id) REFERENCES dashboards(id) ON DELETE CASCADE,
+  INDEX idx_uda_user (user_id),
+  INDEX idx_uda_dashboard (dashboard_id)
+);
+
 -- Conectores configurados por cada usuario
 CREATE TABLE IF NOT EXISTS connectors (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -180,10 +206,15 @@ CREATE TABLE IF NOT EXISTS sync_state (
   FOREIGN KEY (connector_id) REFERENCES connectors(id) ON DELETE CASCADE
 );
 
--- Usuario semilla para desarrollo
-INSERT INTO users (email, name)
-SELECT 'demo@bi-techcol.local', 'Usuario Demo'
+-- Usuario semilla para desarrollo (admin: es el punto de ingreso principal)
+INSERT INTO users (email, name, role, status)
+SELECT 'demo@bi-techcol.local', 'Usuario Demo', 'admin', 'active'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'demo@bi-techcol.local');
+
+-- Promueve al usuario demo a admin en bases creadas antes de existir roles,
+-- para no perder el acceso administrativo tras la migracion.
+UPDATE users SET role = 'admin', status = 'active'
+WHERE email = 'demo@bi-techcol.local';
 
 -- Dashboard semilla para desarrollo
 INSERT INTO dashboards (user_id, name)

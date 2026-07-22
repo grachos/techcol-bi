@@ -9,10 +9,11 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { config } from "./config/env";
 import { pingDb } from "./db";
-import { requireAuth } from "./middleware/auth";
+import { requireAuth, requireAdmin } from "./middleware/auth";
 import authRoutes from "./routes/auth.routes";
 import connectorsRoutes from "./routes/connectors.routes";
 import dashboardsRoutes from "./routes/dashboards.routes";
+import usersRoutes from "./routes/users.routes";
 import aiRoutes from "./routes/ai.routes";
 import { startSyncScheduler } from "./services/sync-service";
 
@@ -59,15 +60,19 @@ app.use(
   authRoutes
 );
 
-// Conectores dinamicos (config de credenciales: solo el dueno de la sesion)
+// Conectores dinamicos. requireAuth expone el rol; el propio router decide
+// que rutas son de gestion (admin) y cuales de solo lectura (custom con grant).
 app.use("/api/connectors", requireAuth, connectorsRoutes);
 
 // Dashboards personalizables (la vista /share/:token es publica; el propio
 // router aplica requireAuth solo al resto de sus rutas)
 app.use("/api/dashboards", dashboardsRoutes);
 
-// Copiloto de IA (Groq)
-app.use("/api/ai", requireAuth, aiRoutes);
+// Gestion de usuarios: exclusiva de administradores (el router aplica el guard)
+app.use("/api/users", usersRoutes);
+
+// Copiloto de IA (Groq): construye/edita widgets, solo administradores
+app.use("/api/ai", requireAuth, requireAdmin, aiRoutes);
 
 // Manejador global: registra el detalle en el servidor y responde generico
 // para no filtrar internals al cliente.

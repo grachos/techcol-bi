@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { FilterDefinition, TreeGridFilterState } from './types-filters'
-import { cn } from '@/lib/utils'
 
 interface TreeGridFiltersProps {
   /** Definiciones de filtros disponibles */

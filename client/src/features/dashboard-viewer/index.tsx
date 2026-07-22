@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import GridLayout, { type Layout, WidthProvider } from 'react-grid-layout'
@@ -12,7 +12,7 @@ import {
   dashboardApi,
   type Widget,
 } from '@/lib/dashboard-api'
-import { type ActiveFilterValue, type ActiveFilters, filtersToParams } from '@/lib/widget-filters'
+import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { GRID_COLS, ROW_HEIGHT, stackLayoutForMobile } from '@/lib/grid-layout'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useDashboardPersistence } from '@/hooks/use-dashboard-persistence'
@@ -36,7 +36,7 @@ export function DashboardViewer() {
   const isMobile = useIsMobile()
 
   const [dashboard, setDashboard] = useState<{ name: string; widgets: Widget[] } | null>(null)
-  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [, setConnectors] = useState<Connector[]>([])
   const [loading, setLoading] = useState(true)
   const [activeFilters, setActiveFilters] = useState<ActiveFilters>({})
 

@@ -111,9 +111,9 @@ export function BiDashboard() {
         setDashboards(list)
 
         // Prioriza: dashboardId de URL > selectedId actual > primer dashboard
-        const urlDashboardId = (search as any)?.dashboardId
+        const urlDashboardId = search?.dashboardId
         const targetId = urlDashboardId
-          ? Number(urlDashboardId)
+          ? urlDashboardId
           : !keepSelection
             ? list[0]?.id ?? null
             : (selectedId ?? list[0]?.id) ?? null

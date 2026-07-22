@@ -20,7 +20,6 @@ import { UsersDialogs } from '@/features/users/components/users-dialogs'
 import { UsersPrimaryButtons } from '@/features/users/components/users-primary-buttons'
 import { UsersProvider } from '@/features/users/components/users-provider'
 import { UsersTable } from '@/features/users/components/users-table'
-import { users } from '@/features/users/data/users'
 
 export const Route = createFileRoute('/clerk/_authenticated/user-management')({
   component: UserManagement,
@@ -87,7 +86,7 @@ function UserManagement() {
           </div>
           <UsersPrimaryButtons />
         </div>
-        <UsersTable data={users} navigate={navigate} search={search} />
+        <UsersTable data={[]} navigate={navigate} search={search} />
       </Main>
 
       <UsersDialogs />

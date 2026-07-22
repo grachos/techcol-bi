@@ -585,6 +585,33 @@ export const es: Record<string, string> = {
   'User List': 'Lista de usuarios',
   'Manage your users and their roles here.':
     'Administra tus usuarios y sus roles aquí.',
+  'Manage users and assign roles and access permissions.':
+    'Administra usuarios y asigna roles y permisos de acceso.',
+  'Administrator Only': 'Solo administradores',
+  'Only administrators can manage users in this module. Users with custom roles can access only the dashboards and pages assigned to them.':
+    'Solo los administradores pueden gestionar usuarios en este módulo. Los usuarios personalizados solo acceden a los dashboards y páginas que se les asignen.',
+  'Access Permissions': 'Permisos de acceso',
+  'No dashboards available': 'No hay dashboards disponibles',
+  'Loading dashboards...': 'Cargando dashboards...',
+  'Loading...': 'Cargando...',
+  Permissions: 'Permisos',
+  'Full Access': 'Acceso total',
+  'No access': 'Sin acceso',
+  '{{count}} Dashboard(s)': '{{count}} Dashboard(s)',
+  'Dashboard(s)': 'Dashboard(s)',
+  'Page(s)': 'Página(s)',
+  'User created': 'Usuario creado',
+  'User deleted': 'Usuario eliminado',
+  'User activated': 'Usuario activado',
+  'User deactivated': 'Usuario desactivado',
+  Activate: 'Activar',
+  Deactivate: 'Desactivar',
+  'Name is required.': 'El nombre es obligatorio.',
+  'Password (optional)': 'Contraseña (opcional)',
+  'New password (optional)': 'Nueva contraseña (opcional)',
+  'Email:': 'Correo:',
+  'Enter email to confirm deletion.':
+    'Ingresa el correo para confirmar la eliminación.',
   'Invite User': 'Invitar usuario',
   'Add User': 'Agregar usuario',
   'Phone Number': 'Número de teléfono',
@@ -900,7 +927,6 @@ export const es: Record<string, string> = {
     'Widget empresarial con agrupación jerárquica, virtualización y formato condicional.',
   Normal: 'Normal',
   Loading: 'Cargando',
-  Error: 'Error',
   'Sales by region and category': 'Ventas por región y categoría',
   // Dashboard general
   'No calculated metrics yet. Create the first one with "New metric".':
@@ -911,13 +937,10 @@ export const es: Record<string, string> = {
   'My Dashboards': 'Mis Dashboards',
   'View and interact with your dashboards. Edit from BI Dashboard.':
     'Ver e interactuar con tus dashboards. Editar desde Panel BI.',
-  'Loading dashboards...': 'Cargando dashboards...',
   'No dashboards yet': 'No hay dashboards aún',
   'Create your first dashboard in BI Dashboard to see it here.':
     'Crea tu primer dashboard en Panel BI para verlo aquí.',
   'Go to BI Dashboard': 'Ir a Panel BI',
-  View: 'Ver',
-  Edit: 'Editar',
   'View Only Mode • Changes are not saved': 'Modo Solo Lectura • Los cambios no se guardan',
   'Loading dashboard...': 'Cargando dashboard...',
   'Back to Dashboards': 'Volver a Dashboards',
@@ -927,7 +950,6 @@ export const es: Record<string, string> = {
   'Recently Visited': 'Visitados Recientemente',
   'Last query executed': 'Última consulta ejecutada',
   'widget(s) configured': 'widget(s) configurado(s)',
-  'Continue': 'Continuar',
   'Guía Completa de Métricas': 'Guía Completa de Métricas',
   'Aprende cómo crear y configurar métricas personalizadas en tu dashboard':
     'Aprende cómo crear y configurar métricas personalizadas en tu dashboard',

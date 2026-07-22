@@ -10,6 +10,8 @@ const sampleUser = {
   id: 1,
   email: 'user@example.com',
   name: 'Sample User',
+  role: 'admin' as const,
+  permissions: { pageNames: [], dashboardIds: [] },
 }
 
 describe('useAuthStore', () => {

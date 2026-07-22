@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
+import { useQueryClient } from '@tanstack/react-query'
 import { Trash2, UserX, UserCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { sleep } from '@/lib/utils'
+import { usersApi } from '@/lib/users-api'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -16,36 +17,30 @@ import { UsersMultiDeleteDialog } from './users-multi-delete-dialog'
 
 type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
-  onUpdateUserStatus?: (userId: string, status: 'active' | 'inactive') => void
-  onDeleteUser?: (userId: string) => void
-  onUpdateUsers?: (users: User[]) => void
 }
 
 export function DataTableBulkActions<TData>({
   table,
-  onUpdateUserStatus,
-  onDeleteUser,
-  onUpdateUsers,
 }: DataTableBulkActionsProps<TData>) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const selectedRows = table.getFilteredSelectedRowModel().rows
 
-  const handleBulkStatusChange = (status: 'active' | 'inactive') => {
-    const selectedUsers = selectedRows.map((row) => row.original as User)
-
-    if (onUpdateUserStatus) {
-      selectedUsers.forEach((user) => {
-        onUpdateUserStatus(user.id, status)
-      })
+  const handleBulkStatusChange = async (status: 'active' | 'inactive') => {
+    const users = selectedRows.map((row) => row.original as User)
+    try {
+      await Promise.all(users.map((u) => usersApi.update(u.id, { status })))
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(
+        t(status === 'active' ? '{{n}} user(s) activated' : '{{n}} user(s) deactivated', {
+          n: users.length,
+        })
+      )
+      table.resetRowSelection()
+    } catch (error) {
+      toast.error(String(error instanceof Error ? error.message : error))
     }
-
-    toast.success(
-      t(status === 'active' ? '{{n}} user(s) activated' : '{{n}} user(s) deactivated', {
-        n: selectedUsers.length,
-      })
-    )
-    table.resetRowSelection()
   }
 
   return (

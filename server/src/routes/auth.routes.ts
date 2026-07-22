@@ -12,8 +12,41 @@ interface UserRow {
   password_hash: string | null;
 }
 
-function publicUser(u: UserRow) {
-  return { id: u.id, email: u.email, name: u.name };
+/**
+ * Devuelve el usuario con su rol y permisos (paginas + dashboards asignados).
+ * Lo comparten login, setup-password y /me para que el cliente siempre reciba
+ * la misma forma y pueda filtrar el menu / proteger rutas.
+ */
+async function loadSessionUser(userId: number) {
+  const [rows]: any = await pool.query(
+    "SELECT id, email, name, role, page_access FROM users WHERE id = ?",
+    [userId]
+  );
+  const u = rows[0];
+  if (!u) return null;
+
+  let pageNames: string[] = [];
+  if (u.page_access) {
+    const parsed =
+      typeof u.page_access === "string" ? JSON.parse(u.page_access) : u.page_access;
+    if (Array.isArray(parsed)) pageNames = parsed.filter((p) => typeof p === "string");
+  }
+
+  const [grantRows]: any = await pool.query(
+    "SELECT dashboard_id FROM user_dashboard_access WHERE user_id = ?",
+    [userId]
+  );
+
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    permissions: {
+      pageNames,
+      dashboardIds: grantRows.map((r: any) => r.dashboard_id),
+    },
+  };
 }
 
 // Iniciar sesion
@@ -42,9 +75,10 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     const token = signToken(user.id);
-    res.json({ token, user: publicUser(user) });
+    res.json({ token, user: await loadSessionUser(user.id) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[auth] login", error);
+    res.status(500).json({ error: "No se pudo iniciar sesion" });
   }
 });
 
@@ -87,24 +121,23 @@ router.post("/setup-password", async (req: Request, res: Response) => {
     ]);
 
     const token = signToken(user.id);
-    res.json({ token, user: publicUser(user) });
+    res.json({ token, user: await loadSessionUser(user.id) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[auth] setup-password", error);
+    res.status(500).json({ error: "No se pudo configurar la contrasena" });
   }
 });
 
-// Usuario actual (para restaurar sesion al recargar la app)
+// Usuario actual (para restaurar sesion al recargar la app). Incluye rol y
+// permisos para que el cliente filtre el menu y proteja las rutas.
 router.get("/me", requireAuth, async (req: Request, res: Response) => {
   try {
-    const [rows]: any = await pool.query(
-      "SELECT id, email, name FROM users WHERE id = ?",
-      [req.userId]
-    );
-    const user = rows[0];
+    const user = await loadSessionUser(req.userId!);
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json(user);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[auth] me", error);
+    res.status(500).json({ error: "No se pudo obtener el usuario" });
   }
 });
 

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from '@tanstack/react-router'
 import { LayoutGrid, Eye, Zap, Clock, ChevronRight } from 'lucide-react'
+import { useAuthStore } from '@/stores/auth-store'
+import { isAdmin } from '@/lib/access'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { LanguageSwitch } from '@/components/language-switch'
@@ -24,13 +26,16 @@ export function DashboardGallery() {
     .filter((d) => d.lastQueriedAt)
     .sort((a, b) => new Date(b.lastQueriedAt!).getTime() - new Date(a.lastQueriedAt!).getTime())[0]
 
-  const sortedDashboards = dashboards.sort((a, b) => {
-    // Favoritos primero, luego alfabético
-    if (a.isFavorite !== b.isFavorite) {
-      return a.isFavorite ? -1 : 1
-    }
-    return a.name.localeCompare(b.name)
-  })
+  // Copia antes de ordenar: .sort() muta en sitio y no se debe mutar el estado.
+  const sortedDashboards = useMemo(
+    () =>
+      [...dashboards].sort((a, b) => {
+        // Favoritos primero, luego alfabético
+        if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1
+        return a.name.localeCompare(b.name)
+      }),
+    [dashboards]
+  )
 
   useEffect(() => {
     loadDashboards()
@@ -155,6 +160,7 @@ interface DashboardCardProps {
 function DashboardCard({ dashboard, onView }: DashboardCardProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const canEdit = isAdmin(useAuthStore((s) => s.auth.user))
 
   return (
     <Card
@@ -202,24 +208,27 @@ function DashboardCard({ dashboard, onView }: DashboardCardProps) {
             className='flex-1'
             onClick={(e) => {
               e.stopPropagation()
-              navigate({ to: `/dashboard/${dashboard.id}` })
+              onView()
             }}
           >
             <Eye className='size-4 me-1.5' />
             {t('View')}
           </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            className='flex-1'
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate({ to: '/bi', search: { dashboardId: dashboard.id } })
-            }}
-          >
-            <Zap className='size-4 me-1.5' />
-            {t('Edit')}
-          </Button>
+          {/* Editar abre el editor BI, exclusivo de administradores. */}
+          {canEdit && (
+            <Button
+              size='sm'
+              variant='outline'
+              className='flex-1'
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate({ to: '/bi', search: { dashboardId: dashboard.id } })
+              }}
+            >
+              <Zap className='size-4 me-1.5' />
+              {t('Edit')}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

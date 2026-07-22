@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import { pool } from "../db";
+import { requireAdmin } from "../middleware/auth";
+import { canReadConnector } from "../services/access";
 import { encryptConfig, decryptConfig, EncryptedPayload } from "../utils/encryption";
 import { maskSecrets, unmaskSecrets, truncateRows } from "../utils/security";
 import { parseRuntimeParams, parseColumnsParam } from "../utils/runtime-params";
@@ -29,7 +31,7 @@ function parseStoredConfig(raw: string | EncryptedPayload): EncryptedPayload {
 }
 
 // Listar conectores (sin credenciales)
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, name, type, date_column, sync_window_days, sync_interval_minutes, created_at
@@ -43,7 +45,7 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 // Obtener un conector específico con su configuración desencriptada
-router.get("/:id", async (req: Request, res: Response) => {
+router.get("/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT id, name, type, config FROM connectors WHERE id = ? AND user_id = ?",
@@ -68,7 +70,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 });
 
 // Crear conector: cifra las credenciales antes de guardar
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAdmin, async (req: Request, res: Response) => {
   const { name, type, config } = req.body ?? {};
 
   if (!name || !type || !config) {
@@ -124,7 +126,7 @@ function defaultTestParams(): { from: string; to: string } {
  * Va siempre a la fuente (no usa el cache): es una prueba de que la conexion
  * funciona AHORA, y suele ejecutarse justo despues de corregir la config.
  */
-router.post("/:id/test", async (req: Request, res: Response) => {
+router.post("/:id/test", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
@@ -202,9 +204,14 @@ router.post("/:id/test", async (req: Request, res: Response) => {
 // Obtener datos en vivo del conector
 router.get("/:id/data", async (req: Request, res: Response) => {
   try {
+    // Lectura: admin (cualquiera) o custom con el conector dentro de un
+    // dashboard que tiene asignado.
+    if (!(await canReadConnector(req.params.id, req.userId!, req.userRole!))) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
     const [rows]: any = await pool.query(
-      "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, req.userId]
+      "SELECT * FROM connectors WHERE id = ?",
+      [req.params.id]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -231,7 +238,7 @@ router.get("/:id/data", async (req: Request, res: Response) => {
 // Configuracion de sincronizacion: que columna es la fecha (para sync
 // incremental), cuantos dias de ventana relee hacia atras, y cada cuanto
 // sincroniza solo (NULL = solo manual via POST /:id/sync).
-router.put("/:id/sync-config", async (req: Request, res: Response) => {
+router.put("/:id/sync-config", requireAdmin, async (req: Request, res: Response) => {
   const { dateColumn, syncWindowDays, syncIntervalMinutes } = req.body ?? {};
   try {
     const [result]: any = await pool.query(
@@ -258,7 +265,7 @@ router.put("/:id/sync-config", async (req: Request, res: Response) => {
 // Sincroniza el conector hacia el motor analitico (DuckDB): esta es la UNICA
 // via por la que la API externa se consulta para "actualizar datos" -- el
 // resto de la app (dashboards, /aggregate) lee lo ya sincronizado.
-router.post("/:id/sync", async (req: Request, res: Response) => {
+router.post("/:id/sync", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(
       `SELECT id, type, config, date_column, sync_window_days
@@ -281,12 +288,16 @@ router.post("/:id/sync", async (req: Request, res: Response) => {
 // Estado de la ultima sincronizacion (para mostrar "actualizado hace X min").
 router.get("/:id/sync", async (req: Request, res: Response) => {
   try {
+    // Estado de solo lectura: visible para admin y para custom con acceso al
+    // conector (para mostrar "actualizado hace X" en el visor).
+    if (!(await canReadConnector(req.params.id, req.userId!, req.userRole!))) {
+      return res.json({ status: "idle", last_sync_at: null, row_count: null });
+    }
     const [rows]: any = await pool.query(
       `SELECT s.status, s.last_sync_at, s.last_watermark, s.row_count, s.last_error
        FROM sync_state s
-       JOIN connectors c ON c.id = s.connector_id
-       WHERE s.connector_id = ? AND c.user_id = ?`,
-      [req.params.id, req.userId]
+       WHERE s.connector_id = ?`,
+      [req.params.id]
     );
     res.json(rows[0] ?? { status: "idle", last_sync_at: null, row_count: null });
   } catch (error: any) {
@@ -299,9 +310,12 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
 // clave connectorId+params), asi que no golpea la fuente de mas.
 router.post("/:id/aggregate", async (req: Request, res: Response) => {
   try {
+    if (!(await canReadConnector(req.params.id, req.userId!, req.userRole!))) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
     const [rows]: any = await pool.query(
-      "SELECT * FROM connectors WHERE id = ? AND user_id = ?",
-      [req.params.id, req.userId]
+      "SELECT * FROM connectors WHERE id = ?",
+      [req.params.id]
     );
     const connector: ConnectorRow | undefined = rows[0];
     if (!connector) {
@@ -321,7 +335,7 @@ router.post("/:id/aggregate", async (req: Request, res: Response) => {
 });
 
 // Preview: ejecutar query con LIMIT para ver primeras filas o error
-router.post("/:id/preview", async (req: Request, res: Response) => {
+router.post("/:id/preview", requireAdmin, async (req: Request, res: Response) => {
   const { query } = req.body ?? {};
 
   if (!query || typeof query !== "string") {
@@ -377,7 +391,7 @@ router.post("/:id/preview", async (req: Request, res: Response) => {
 });
 
 // Editar conector
-router.put("/:id", async (req: Request, res: Response) => {
+router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
   const { name, config } = req.body ?? {};
 
   if (!name || !config) {
@@ -421,7 +435,7 @@ router.put("/:id", async (req: Request, res: Response) => {
 });
 
 // Eliminar conector
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [result]: any = await pool.query(
       "DELETE FROM connectors WHERE id = ? AND user_id = ?",

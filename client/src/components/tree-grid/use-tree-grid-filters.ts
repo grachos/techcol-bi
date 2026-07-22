@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import type { FilterDefinition, TreeGridFilterState } from './types-filters'
 
 interface UseTreeGridFiltersProps {

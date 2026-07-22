@@ -32,14 +32,11 @@ type DataTableProps = {
   data: User[]
   search: Record<string, unknown>
   navigate: NavigateFn
-  onUpdateUserStatus?: (userId: string, status: 'active' | 'inactive') => void
-  onDeleteUser?: (userId: string) => void
-  onUpdateUsers?: (users: User[]) => void
 }
 
-export function UsersTable({ data, search, navigate, onUpdateUserStatus, onDeleteUser, onUpdateUsers }: DataTableProps) {
+export function UsersTable({ data, search, navigate }: DataTableProps) {
   const { t } = useTranslation()
-  const columns = useMemo(() => getUsersColumns(t, onUpdateUserStatus), [t, onUpdateUserStatus])
+  const columns = useMemo(() => getUsersColumns(t), [t])
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -62,8 +59,8 @@ export function UsersTable({ data, search, navigate, onUpdateUserStatus, onDelet
     pagination: { defaultPage: 1, defaultPageSize: 10 },
     globalFilter: { enabled: false },
     columnFilters: [
-      // username per-column text filter
-      { columnId: 'username', searchKey: 'username', type: 'string' },
+      // filtro de texto por nombre
+      { columnId: 'name', searchKey: 'username', type: 'string' },
       { columnId: 'status', searchKey: 'status', type: 'array' },
       { columnId: 'role', searchKey: 'role', type: 'array' },
     ],
@@ -108,7 +105,7 @@ export function UsersTable({ data, search, navigate, onUpdateUserStatus, onDelet
       <DataTableToolbar
         table={table}
         searchPlaceholder={t('Filter users...')}
-        searchKey='username'
+        searchKey='name'
         filters={[
           {
             columnId: 'status',
@@ -192,12 +189,7 @@ export function UsersTable({ data, search, navigate, onUpdateUserStatus, onDelet
         </Table>
       </div>
       <DataTablePagination table={table} className='mt-auto' />
-      <DataTableBulkActions
-        table={table}
-        onUpdateUserStatus={onUpdateUserStatus}
-        onDeleteUser={onDeleteUser}
-        onUpdateUsers={onUpdateUsers}
-      />
+      <DataTableBulkActions table={table} />
     </div>
   )
 }

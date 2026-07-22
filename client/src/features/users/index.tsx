@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { getRouteApi } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { getRouteApi } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { usersApi } from '@/lib/users-api'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitch } from '@/components/language-switch'
 import { Header } from '@/components/layout/header'
@@ -15,8 +15,6 @@ import { UsersDialogs } from './components/users-dialogs'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
 import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
-import { users as initialUsers } from './data/users'
-import { type User } from './data/schema'
 
 const route = getRouteApi('/_authenticated/users/')
 
@@ -24,19 +22,11 @@ export function Users() {
   const { t } = useTranslation()
   const search = route.useSearch()
   const navigate = route.useNavigate()
-  const [users, setUsers] = useState<User[]>(initialUsers)
 
-  const updateUserStatus = (userId: string, status: 'active' | 'inactive') => {
-    setUsers(users.map(u => u.id === userId ? { ...u, status } : u))
-  }
-
-  const deleteUser = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId))
-  }
-
-  const updateUsers = (updatedUsers: User[]) => {
-    setUsers(updatedUsers)
-  }
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: usersApi.list,
+  })
 
   return (
     <UsersProvider>
@@ -69,14 +59,11 @@ export function Users() {
           </AlertDescription>
         </Alert>
 
-        <UsersTable
-          data={users}
-          search={search}
-          navigate={navigate}
-          onUpdateUserStatus={updateUserStatus}
-          onDeleteUser={deleteUser}
-          onUpdateUsers={updateUsers}
-        />
+        {isLoading ? (
+          <p className='text-muted-foreground text-sm'>{t('Loading...')}</p>
+        ) : (
+          <UsersTable data={users} search={search} navigate={navigate} />
+        )}
       </Main>
 
       <UsersDialogs />

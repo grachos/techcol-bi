@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { pool } from "../db";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireAdmin } from "../middleware/auth";
+import { canReadDashboard } from "../services/access";
 import { truncateRows } from "../utils/security";
 import { parseRuntimeParams, parseColumnsParam } from "../utils/runtime-params";
 import { runAggregateCached } from "../services/cached-aggregate";
@@ -105,13 +106,15 @@ function serializeTags(tags: unknown): string | null {
   return clean.length > 0 ? clean.join(",") : null;
 }
 
-async function assertDashboardOwnership(
-  dashboardId: string | number,
-  userId: number
+// Modelo de pool compartido: los dashboards los gestionan los admin (las rutas
+// de escritura ya estan detras de requireAdmin), asi que basta comprobar que el
+// dashboard exista, sin atarlo al user_id de quien lo creo.
+async function assertDashboardExists(
+  dashboardId: string | number
 ): Promise<boolean> {
   const [rows]: any = await pool.query(
-    "SELECT id FROM dashboards WHERE id = ? AND user_id = ?",
-    [dashboardId, userId]
+    "SELECT id FROM dashboards WHERE id = ? LIMIT 1",
+    [dashboardId]
   );
   return rows.length > 0;
 }
@@ -270,13 +273,22 @@ router.post(
 // ---------------------------------------------------------------------
 router.use(requireAuth);
 
-// Listar dashboards del usuario
+// Listar dashboards. Admin: todos (gestiona el pool completo). Custom: solo
+// los que un admin le asigno.
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const [rows]: any = await pool.query(
-      "SELECT id, name, is_favorite, tags, created_at, last_queried_at FROM dashboards WHERE user_id = ? ORDER BY created_at ASC",
-      [req.userId]
-    );
+    const [rows]: any =
+      req.userRole === "admin"
+        ? await pool.query(
+            "SELECT id, name, is_favorite, tags, created_at, last_queried_at FROM dashboards ORDER BY created_at ASC"
+          )
+        : await pool.query(
+            `SELECT d.id, d.name, d.is_favorite, d.tags, d.created_at, d.last_queried_at
+             FROM dashboards d
+             JOIN user_dashboard_access a ON a.dashboard_id = d.id AND a.user_id = ?
+             ORDER BY d.created_at ASC`,
+            [req.userId]
+          );
     res.json(
       rows.map((r: any) => ({
         id: r.id,
@@ -292,8 +304,8 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
-// Crear dashboard
-router.post("/", async (req: Request, res: Response) => {
+// Crear dashboard (solo admin)
+router.post("/", requireAdmin, async (req: Request, res: Response) => {
   const { name, tags } = req.body ?? {};
   if (!name) {
     return res.status(400).json({ error: "Campo requerido: name" });
@@ -312,9 +324,12 @@ router.post("/", async (req: Request, res: Response) => {
 // Obtener un dashboard con sus widgets (incluye datos del conector para mostrar tipo/nombre)
 router.get("/:id", async (req: Request, res: Response) => {
   try {
+    if (!(await canReadDashboard(req.params.id, req.userId!, req.userRole!))) {
+      return res.status(404).json({ error: "Dashboard no encontrado" });
+    }
     const [dashRows]: any = await pool.query(
-      "SELECT id, name, is_favorite, tags, created_at, last_filters, last_queried_at FROM dashboards WHERE id = ? AND user_id = ?",
-      [req.params.id, req.userId]
+      "SELECT id, name, is_favorite, tags, created_at, last_filters, last_queried_at FROM dashboards WHERE id = ?",
+      [req.params.id]
     );
     if (dashRows.length === 0) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
@@ -364,8 +379,8 @@ router.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
-// Actualizar dashboard: nombre, favorito y/o tags (cualquier combinacion)
-router.put("/:id", async (req: Request, res: Response) => {
+// Actualizar dashboard: nombre, favorito y/o tags (solo admin)
+router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
   const { name, isFavorite, tags } = req.body ?? {};
 
   const fields: string[] = [];
@@ -390,9 +405,9 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
 
   try {
-    values.push(req.params.id, req.userId);
+    values.push(req.params.id);
     const [result]: any = await pool.query(
-      `UPDATE dashboards SET ${fields.join(", ")} WHERE id = ? AND user_id = ?`,
+      `UPDATE dashboards SET ${fields.join(", ")} WHERE id = ?`,
       values
     );
     if (result.affectedRows === 0) {
@@ -407,12 +422,12 @@ router.put("/:id", async (req: Request, res: Response) => {
 // Guardar la ultima consulta (filtros activos) aplicada en el dashboard.
 // Se usa para que /dashboard, /dashboard/:id y el link compartido siempre
 // muestren la misma ultima consulta, sin depender de localStorage.
-router.put("/:id/last-query", async (req: Request, res: Response) => {
+router.put("/:id/last-query", requireAdmin, async (req: Request, res: Response) => {
   const { filters } = req.body ?? {};
   try {
     const [result]: any = await pool.query(
-      "UPDATE dashboards SET last_filters = ?, last_queried_at = NOW() WHERE id = ? AND user_id = ?",
-      [JSON.stringify(filters ?? {}), req.params.id, req.userId]
+      "UPDATE dashboards SET last_filters = ?, last_queried_at = NOW() WHERE id = ?",
+      [JSON.stringify(filters ?? {}), req.params.id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
@@ -423,12 +438,12 @@ router.put("/:id/last-query", async (req: Request, res: Response) => {
   }
 });
 
-// Eliminar dashboard
-router.delete("/:id", async (req: Request, res: Response) => {
+// Eliminar dashboard (solo admin)
+router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
   try {
     const [result]: any = await pool.query(
-      "DELETE FROM dashboards WHERE id = ? AND user_id = ?",
-      [req.params.id, req.userId]
+      "DELETE FROM dashboards WHERE id = ?",
+      [req.params.id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
@@ -440,7 +455,7 @@ router.delete("/:id", async (req: Request, res: Response) => {
 });
 
 // Agregar widget a un dashboard
-router.post("/:id/widgets", async (req: Request, res: Response) => {
+router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) => {
   const {
     connectorId,
     title,
@@ -488,7 +503,7 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -519,7 +534,7 @@ router.post("/:id/widgets", async (req: Request, res: Response) => {
 });
 
 // Actualizar widget (config y/o layout individual)
-router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
+router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Response) => {
   const {
     title,
     chartType,
@@ -550,7 +565,7 @@ router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -615,7 +630,7 @@ router.put("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
 });
 
 // Actualizar posiciones de varios widgets a la vez (tras arrastrar/redimensionar)
-router.put("/:id/layout", async (req: Request, res: Response) => {
+router.put("/:id/layout", requireAdmin, async (req: Request, res: Response) => {
   const items: { id: number; x: number; y: number; w: number; h: number }[] =
     req.body?.items ?? [];
 
@@ -624,7 +639,7 @@ router.put("/:id/layout", async (req: Request, res: Response) => {
   }
 
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -647,9 +662,9 @@ router.put("/:id/layout", async (req: Request, res: Response) => {
 });
 
 // Eliminar widget
-router.delete("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
+router.delete("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
     const [result]: any = await pool.query(
@@ -666,9 +681,9 @@ router.delete("/:id/widgets/:widgetId", async (req: Request, res: Response) => {
 });
 
 // Generar o obtener link compartible del dashboard
-router.post("/:id/share", async (req: Request, res: Response) => {
+router.post("/:id/share", requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
@@ -697,9 +712,9 @@ router.post("/:id/share", async (req: Request, res: Response) => {
 });
 
 // Revocar el link compartible del dashboard
-router.delete("/:id/share", async (req: Request, res: Response) => {
+router.delete("/:id/share", requireAdmin, async (req: Request, res: Response) => {
   try {
-    if (!(await assertDashboardOwnership(req.params.id, req.userId!))) {
+    if (!(await assertDashboardExists(req.params.id))) {
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
     await pool.query("DELETE FROM dashboard_shares WHERE dashboard_id = ?", [

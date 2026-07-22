@@ -4,10 +4,17 @@
  */
 import { apiFetch } from './api-fetch'
 
+export interface UserPermissions {
+  pageNames: string[]
+  dashboardIds: number[]
+}
+
 export interface AuthUser {
   id: number
   email: string
   name: string | null
+  role: 'admin' | 'custom'
+  permissions: UserPermissions
 }
 
 export interface LoginResult {
