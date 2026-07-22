@@ -102,6 +102,7 @@ const KINDS_WITH_COLOR: WidgetKind[] = [
   'combo',
   'progress',
   'map',
+  'tree_grid',
 ]
 
 // Kinds que usan columnas X/Y (eje/categoria y valor)
@@ -654,7 +655,7 @@ export function WidgetDialog({
           {hasColor && (
             <div className='space-y-2'>
               <Label>{t('Color')}</Label>
-              <div className='flex flex-wrap gap-2'>
+              <div className='flex flex-wrap gap-2.5 items-center pt-0.5'>
                 {WIDGET_COLORS.map((c) => (
                   <button
                     key={c}
@@ -662,13 +663,16 @@ export function WidgetDialog({
                     onClick={() => setColor(c)}
                     title={t(WIDGET_COLOR_LABELS[c])}
                     className={cn(
-                      'size-7 rounded-full border-2 transition',
+                      'size-8 rounded-full border-2 transition-all relative flex items-center justify-center shadow-xs hover:scale-110 active:scale-95 cursor-pointer',
                       color === c
-                        ? 'border-foreground scale-110'
-                        : 'border-transparent'
+                        ? 'border-foreground ring-2 ring-foreground/30 scale-110'
+                        : 'border-transparent opacity-85 hover:opacity-100'
                     )}
                     style={{ background: WIDGET_COLOR_CSS[c].solid }}
                   >
+                    {color === c && (
+                      <span className='size-2 rounded-full bg-white shadow-xs' />
+                    )}
                     <span className='sr-only'>{t(WIDGET_COLOR_LABELS[c])}</span>
                   </button>
                 ))}
