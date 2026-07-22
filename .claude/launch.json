@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "bi-techcol-dev",
+      "name": "bi-techcol-api",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": ["--prefix", "server", "run", "dev"],
       "port": 4000
     }
   ]

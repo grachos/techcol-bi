@@ -10,6 +10,7 @@ interface UserRow {
   email: string;
   name: string | null;
   password_hash: string | null;
+  status: "active" | "inactive";
 }
 
 /**
@@ -60,13 +61,18 @@ router.post("/login", async (req: Request, res: Response) => {
 
   try {
     const [rows]: any = await pool.query(
-      "SELECT id, email, name, password_hash FROM users WHERE email = ?",
+      "SELECT id, email, name, password_hash, status FROM users WHERE email = ?",
       [email]
     );
     const user: UserRow | undefined = rows[0];
 
     if (!user || !user.password_hash) {
       return res.status(401).json({ error: "Credenciales invalidas" });
+    }
+    // Una cuenta desactivada no debe poder obtener un token: sin esto el login
+    // entregaba sesion y recien requireAuth la rechazaba en la peticion siguiente.
+    if (user.status !== "active") {
+      return res.status(403).json({ error: "Esta cuenta esta desactivada" });
     }
 
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -100,13 +106,16 @@ router.post("/setup-password", async (req: Request, res: Response) => {
 
   try {
     const [rows]: any = await pool.query(
-      "SELECT id, email, name, password_hash FROM users WHERE email = ?",
+      "SELECT id, email, name, password_hash, status FROM users WHERE email = ?",
       [email]
     );
     const user: UserRow | undefined = rows[0];
 
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    if (user.status !== "active") {
+      return res.status(403).json({ error: "Esta cuenta esta desactivada" });
     }
     if (user.password_hash) {
       return res.status(409).json({
