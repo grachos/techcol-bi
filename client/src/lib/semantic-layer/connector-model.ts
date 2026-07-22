@@ -86,6 +86,30 @@ export function listScalarCalculatedMeasureNames(connectorId: number): string[] 
 const augmentCache = new WeakMap<Row[], { version: number; result: Row[] }>()
 
 /**
+ * De `names`, las medidas que SI se pueden calcular con esta forma de fila.
+ *
+ * Las filas pueden venir proyectadas -- un filtro de seleccion pide solo su
+ * columna --, y una medida que dependa de otra columna (ej. una que use
+ * "manifiesto") lanzaria "Identificador desconocido" y tumbaria el widget
+ * entero. Se prueba cada medida una vez contra una fila de muestra: si no se
+ * puede evaluar con esta forma, tampoco con las demas.
+ */
+export function evaluableMeasureNames(
+  model: SemanticModel,
+  sampleRow: Row,
+  names: string[]
+): string[] {
+  return names.filter((name) => {
+    try {
+      evaluateMetricValueForRows(model, [sampleRow], name)
+      return true
+    } catch {
+      return false
+    }
+  })
+}
+
+/**
  * Agrega a cada fila el valor de las metricas calculadas escalares (por
  * fila) registradas para el conector, para que agrupar/filtrar por su
  * nombre funcione igual que con una columna real: row['ruta'] existe.
@@ -107,9 +131,12 @@ export function augmentRowsWithScalarMeasures(connectorId: number | null | undef
   const cached = augmentCache.get(rows)
   if (cached && cached.version === version) return cached.result
 
+  const usable = evaluableMeasureNames(model, rows[0], names)
+  if (usable.length === 0) return rows
+
   const result = rows.map((row) => {
     const extra: Row = {}
-    for (const name of names) {
+    for (const name of usable) {
       extra[name] = evaluateMetricValueForRows(model, [row], name)
     }
     return { ...row, ...extra }
