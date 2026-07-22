@@ -24,14 +24,18 @@ export function AiWidgetPrompt({ disabled, connectors, onSuggestion }: AiWidgetP
     setLoading(true)
     try {
       const calculatedMeasures = (connectors ?? []).flatMap((c) => {
-        const measures = getCalculatedMeasuresForConnector(c.id)
-        return measures.map((meas) => ({
-          name: meas.name,
-          label: meas.label,
-          expression: meas.expression,
-          connectorId: c.id,
-          connectorName: c.name,
-        }))
+        try {
+          const measures = getCalculatedMeasuresForConnector(c.id)
+          return measures.map((meas) => ({
+            name: String(meas.name ?? ''),
+            label: String(meas.label ?? meas.name ?? ''),
+            expression: String(meas.expression ?? ''),
+            connectorId: Number(c.id),
+            connectorName: String(c.name ?? ''),
+          }))
+        } catch {
+          return []
+        }
       })
 
       const suggestion = await aiApi.suggestWidget(prompt, calculatedMeasures)

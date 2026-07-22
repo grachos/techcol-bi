@@ -132,12 +132,13 @@ function buildSystemPrompt(
   connectors: ConnectorSummary[],
   calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>
 ): string {
+  const safeMeasures = Array.isArray(calculatedMeasures) ? calculatedMeasures : [];
   const catalog = connectors
     .map((c) => {
       const cols = c.columns.length > 0 ? c.columns.join(", ") : "(desconocidas)";
-      const cMeasures = (calculatedMeasures ?? [])
-        .filter((m) => m.connectorId === c.id || !m.connectorId)
-        .map((m) => `${m.name} ("${m.label}"${m.expression ? `: ${m.expression}` : ''})`);
+      const cMeasures = safeMeasures
+        .filter((m) => m && typeof m === "object" && (m.connectorId === c.id || !m.connectorId))
+        .map((m) => `${m.name || "metrica"} ("${m.label || m.name}"${m.expression ? `: ${m.expression}` : ''})`);
       const measuresText = cMeasures.length > 0 ? cMeasures.join(", ") : "ninguna";
       return `- id=${c.id} nombre="${c.name}" tipo=${c.type}\n  Columnas crudas: [${cols}]\n  Métricas calculadas: [${measuresText}]`;
     })
@@ -232,7 +233,7 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
     connector.columns.forEach((c) => validFields.add(c));
     if (Array.isArray(calculatedMeasures)) {
       calculatedMeasures
-        .filter((m: any) => m.connectorId === connector.id || !m.connectorId)
+        .filter((m: any) => m && typeof m === "object" && (m.connectorId === connector.id || !m.connectorId))
         .forEach((m: any) => {
           if (m.name) validFields.add(m.name);
           if (m.label) validFields.add(m.label);
@@ -257,6 +258,10 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
     const xKey = matchField(result?.xKey);
     const yKey = matchField(result?.yKey);
 
+    const aggregation: Aggregation = AGGREGATIONS.includes(result?.aggregation)
+      ? result.aggregation
+      : "sum";
+
     res.json({
       kind,
       connectorId: connector.id,
@@ -274,7 +279,12 @@ router.post("/suggest-widget", async (req: Request, res: Response) => {
       explanation: typeof result?.explanation === "string" ? result.explanation : "",
     });
   } catch (error: any) {
-    serverError(res, "ai", error);
+    console.error("[ai/suggest-widget error]", error);
+    if (!res.headersSent) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : "Error al procesar la sugerencia con la IA",
+      });
+    }
   }
 });
 
