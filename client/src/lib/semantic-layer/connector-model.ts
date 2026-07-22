@@ -17,9 +17,30 @@ const modelCache = new Map<number, SemanticModel>()
  * una vez construido, el modelo se cachea y las filas de llamadas
  * posteriores ya no afectan su esquema (solo se usan para evaluar).
  */
+/** Campos que el modelo ya conoce (dimensiones + medidas). */
+function knownFieldNames(model: SemanticModel): Set<string> {
+  const names = new Set<string>()
+  for (const d of model.listDimensions()) names.add(d.name)
+  for (const m of model.listMeasures()) names.add(m.name)
+  return names
+}
+
 export function getConnectorSemanticModel(connectorId: number, rows: Row[]): SemanticModel | null {
   const cached = modelCache.get(connectorId)
-  if (cached) return cached
+  if (cached) {
+    // El primero que construye el modelo puede haber traido filas PROYECTADAS
+    // (un filtro de seleccion pide solo su columna), lo que dejaria el modelo
+    // con un solo campo para siempre. Si llegan filas con columnas que aun no
+    // conoce, se re-infiere para completarlo -- registerInferredFields es
+    // aditivo, y el chequeo de claves nuevas lo hace correr solo al principio.
+    if (rows.length > 0) {
+      const known = knownFieldNames(cached)
+      if (Object.keys(rows[0]).some((k) => !known.has(k))) {
+        registerInferredFields(cached, rows)
+      }
+    }
+    return cached
+  }
   if (rows.length === 0) return null
 
   const model = new SemanticModel({
@@ -72,7 +93,12 @@ const augmentCache = new WeakMap<Row[], { version: number; result: Row[] }>()
  */
 export function augmentRowsWithScalarMeasures(connectorId: number | null | undefined, rows: Row[]): Row[] {
   if (!connectorId) return rows
-  const model = peekConnectorSemanticModel(connectorId)
+  // Construye el modelo si aun no existe (aqui ya tenemos filas): de lo
+  // contrario, en pantallas que nunca abren el editor -- el visor de solo
+  // lectura, el link compartido -- nadie lo construiria y las metricas
+  // calculadas escalares (ej. mes = MONTH(fecha), anio = YEAR(fecha)) no se
+  // agregarian a las filas, dejando sin opciones a los filtros que las usan.
+  const model = getConnectorSemanticModel(connectorId, rows)
   if (!model) return rows
   const names = listScalarCalculatedMeasureNames(connectorId)
   if (names.length === 0) return rows

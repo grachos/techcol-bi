@@ -15,6 +15,7 @@
 import { SemanticModel } from "../../../client/src/lib/semantic-layer/semantic-model";
 import { InMemoryMetricsRepository } from "../../../client/src/lib/semantic-layer/repository";
 import { registerInferredFields } from "../../../client/src/lib/semantic-layer/infer-base-model";
+import { monthIndexEs } from "../../../client/src/lib/semantic-layer/expression";
 import {
   buildAggregationTree,
   buildRegistryFromModel,
@@ -211,6 +212,11 @@ export function aggregateStat(
           const av = Number(a.label);
           const bv = Number(b.label);
           if (!Number.isNaN(av) && !Number.isNaN(bv)) return av - bv;
+          // Nombres de mes: cronologico, no alfabetico (si no, "Abril" queda
+          // antes que "Enero" y la serie temporal se lee al reves).
+          const am = monthIndexEs(a.label);
+          const bm = monthIndexEs(b.label);
+          if (am !== -1 && bm !== -1) return am - bm;
           return a.label.localeCompare(b.label);
         });
       const last = points[points.length - 1];

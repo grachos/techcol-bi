@@ -167,6 +167,21 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+/**
+ * Indice 0-11 del mes a partir de su nombre en español (completo o abreviado,
+ * sin importar mayusculas ni el punto final), o -1 si no es un mes.
+ *
+ * Lo usa la agregacion para ordenar el eje cronologicamente: MONTH(fecha,
+ * "MMMM") produce etiquetas de texto, y ordenarlas alfabeticamente pondria
+ * "Abril" antes que "Enero".
+ */
+export function monthIndexEs(label: string): number {
+  const s = label.trim().toLowerCase().replace(/\.$/, '')
+  if (!s) return -1
+  const full = MONTH_NAMES_ES.indexOf(s)
+  return full !== -1 ? full : MONTH_ABBR_ES.indexOf(s)
+}
+
 const YEAR = scalar({
   name: 'YEAR',
   minArgs: 1,

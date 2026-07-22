@@ -1,4 +1,5 @@
 export { ExpressionEngine } from './engine'
+export { monthIndexEs } from './functions'
 export { ExpressionError, LexError, ParseError, EvalError } from './errors'
 export type { ASTNode, BinaryOp } from './ast'
 export type { EvalContext, EvaluateFn, FunctionDef, AggregateFunctionDef, ScalarFunctionDef, Row } from './context'
