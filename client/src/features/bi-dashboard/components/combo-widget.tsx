@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useWidgetData, type Row } from '@/hooks/use-widget-data'
+import { useStatAggregation } from '@/hooks/use-stat-aggregation'
 import { getWidgetColorCss, type Widget } from '@/lib/dashboard-api'
 import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { type ActiveFilters } from '@/lib/widget-filters'
@@ -40,42 +41,102 @@ interface ComboWidgetProps {
 
 export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   const { t } = useTranslation()
-  // Proyeccion solo si xKey/yKey estan explicitos: la auto-deteccion de abajo
-  // (cuando el widget no los tiene configurados) necesita ver TODAS las
-  // columnas para elegir la primera textual/numerica -- proyectar antes
-  // rompería ese fallback.
-  const columns = widget.xKey && widget.yKey ? [widget.xKey, widget.yKey] : undefined
-  const { rows, filteredRows, error, isLoading, needsDateFilter } =
-    useWidgetData(widget, activeFilters, columns)
 
-  const { x: xKey, bars, line } = useMemo(
-    () => detectSeries(filteredRows, widget.xKey, widget.yKey),
-    [filteredRows, widget.xKey, widget.yKey]
-  )
+  const [breakdownKey, granoKey] = useMemo(() => {
+    if (!widget.xKey) return [null, null] as const
+    const [b, g] = widget.xKey.split(',')
+    return [b || null, g || null] as const
+  }, [widget.xKey])
 
-  const data = useMemo(
-    () =>
-      filteredRows.map((r) => ({
-        ...r,
-        [bars]: Number(r[bars]),
-        ...(line ? { [line]: Number(r[line]) } : {}),
-      })),
-    [filteredRows, bars, line]
-  )
+  const hasKeys = !!widget.xKey && !!widget.yKey
 
-  if (isLoading) return <WidgetLoading />
-  if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
-  if (error) {
-    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
-  }
-  if (rows.length === 0) return <WidgetEmpty text={t('No data yet.')} />
-  if (!bars) return <WidgetEmpty text={t('No numeric columns to chart')} />
+  const { data: aggData, error: aggError, isLoading: aggLoading, needsDateFilter: aggNeedsDateFilter } =
+    useStatAggregation(
+      widget,
+      activeFilters,
+      {
+        yKey: widget.yKey ?? null,
+        aggregation: widget.aggregation ?? undefined,
+        breakdownKey,
+        granoKey,
+      }
+    )
 
+  const { rows, filteredRows, error: rawError, isLoading: rawLoading, needsDateFilter: rawNeedsDateFilter } =
+    useWidgetData(widget, activeFilters, hasKeys ? undefined : undefined)
 
   const barColor = getWidgetColorCss(widget.color).solid
   const lineColor = getWidgetColorCss('pink').solid
-  // Widget bajito: sin ejes para dejar todo el espacio a la grafica
   const compact = widget.layout.h <= 3
+
+  if (hasKeys) {
+    if (aggLoading) return <WidgetLoading />
+    if (aggNeedsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
+    if (aggError) return <WidgetError error={t('Error fetching data: {{error}}', { error: aggError })} />
+    if (!aggData?.points || aggData.points.length === 0) return <WidgetEmpty text={t('No data yet.')} />
+
+    const cleanXKey = breakdownKey || widget.xKey!
+    const chartData = aggData.points.map((p) => ({
+      [cleanXKey]: p.label,
+      [widget.yKey!]: p.value,
+    }))
+
+    return (
+      <ResponsiveContainer width='100%' height='100%'>
+        <ComposedChart
+          data={chartData}
+          margin={compact ? { top: 4, right: 4, left: 4, bottom: 4 } : { top: 6, right: 8, left: -16, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
+          <XAxis
+            dataKey={cleanXKey}
+            fontSize={11}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(v) => truncateLabel(v, 8)}
+            interval='preserveStartEnd'
+            minTickGap={12}
+            hide={compact}
+          />
+          <YAxis
+            fontSize={11}
+            tickLine={false}
+            axisLine={false}
+            width={52}
+            tickFormatter={(v: number) => formatCompactNumber(v)}
+            hide={compact}
+          />
+          <Tooltip
+            cursor={{ fill: 'transparent' }}
+            contentStyle={{
+              backgroundColor: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: 8,
+              fontSize: 12,
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            }}
+            labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+            itemStyle={{ color: '#0f172a' }}
+          />
+          <Bar dataKey={widget.yKey!} fill={barColor} radius={[4, 4, 0, 0]} barSize={16} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    )
+  }
+
+  if (rawLoading) return <WidgetLoading />
+  if (rawNeedsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
+  if (rawError) return <WidgetError error={t('Error fetching data: {{error}}', { error: rawError })} />
+  if (rows.length === 0 || filteredRows.length === 0) return <WidgetEmpty text={t('No data yet.')} />
+
+  const { x: xKey, bars, line } = detectSeries(filteredRows, widget.xKey, widget.yKey)
+  if (!bars) return <WidgetEmpty text={t('No numeric columns to chart')} />
+
+  const data = filteredRows.map((r) => ({
+    ...r,
+    [bars]: Number(r[bars]),
+    ...(line ? { [line]: Number(r[line]) } : {}),
+  }))
 
   return (
     <ResponsiveContainer width='100%' height='100%'>
@@ -98,7 +159,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
           fontSize={11}
           tickLine={false}
           axisLine={false}
-          width={36}
+          width={52}
           tickFormatter={(v: number) => formatCompactNumber(v)}
           hide={compact}
         />
