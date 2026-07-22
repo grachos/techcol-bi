@@ -255,7 +255,7 @@ export function BiDashboard() {
           metricsAvailable={!!metricsWidget}
         />
 
-        {connectors.length > 0 && selectedId && (
+        {isEditing && connectors.length > 0 && selectedId && (
           <AiWidgetPrompt
             connectors={connectors}
             onSuggestion={(suggestion) => {
