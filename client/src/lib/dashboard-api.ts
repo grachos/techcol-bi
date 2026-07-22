@@ -97,6 +97,27 @@ export function getWidgetColorCss(color?: string): { solid: string; soft: string
   return { solid: color, soft: color }
 }
 
+export function isLightColor(color?: string): boolean {
+  if (!color || color === 'primary') return false
+  if (color in WIDGET_COLOR_CSS) return false
+
+  let hex = color.trim()
+  if (!hex.startsWith('#')) return false
+
+  let clean = hex.replace('#', '')
+  if (clean.length === 3) {
+    clean = clean.split('').map((c) => c + c).join('')
+  }
+  if (clean.length !== 6) return false
+
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.55
+}
+
 export interface DashboardSummary {
   id: number
   name: string

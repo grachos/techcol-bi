@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useStatAggregation } from '@/hooks/use-stat-aggregation'
-import { type Widget } from '@/lib/dashboard-api'
+import { isLightColor, type Widget } from '@/lib/dashboard-api'
 import { applyFormat } from '@/lib/semantic-layer'
 import { type ActiveFilters } from '@/lib/widget-filters'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
@@ -72,8 +72,14 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
     [data]
   )
 
-  const mutedClass = onColor ? 'text-white/80' : 'text-muted-foreground'
-  const sparkColor = onColor ? 'rgba(255,255,255,0.85)' : 'var(--primary)'
+  const isLight = onColor && isLightColor(widget.color)
+  const mutedClass = onColor
+    ? (isLight ? 'text-slate-800 font-medium' : 'text-white/80')
+    : 'text-muted-foreground'
+  const sparkColor = onColor
+    ? (isLight ? '#0f172a' : 'rgba(255,255,255,0.85)')
+    : 'var(--primary)'
+  const textColor = onColor ? (isLight ? '#0f172a' : '#ffffff') : 'currentColor'
   const targetColor = 'var(--destructive)'
   // Widget bajito: numero mas pequeño y sin sparkline para que quepa todo
   const compact = widget.layout.h <= 3
@@ -129,6 +135,7 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
+                  stroke={textColor}
                 />
                 <YAxis
                   domain={[domainMin, domainMax]}
@@ -137,11 +144,13 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                   tickLine={false}
                   axisLine={false}
                   width={48}
+                  stroke={textColor}
                 />
                 <Tooltip
                   formatter={((v: number | string) => applyFormat(Number(v), format)) as never}
                   contentStyle={{
-                    background: 'var(--background)',
+                    background: 'var(--card)',
+                    color: 'var(--card-foreground)',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
                     fontSize: 12,
@@ -196,6 +205,17 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                 tickLine={false}
                 axisLine={false}
                 width={48}
+                stroke={textColor}
+              />
+              <Tooltip
+                formatter={((v: number | string) => applyFormat(Number(v), format)) as never}
+                contentStyle={{
+                  background: 'var(--card)',
+                  color: 'var(--card-foreground)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
               />
               <ReferenceLine
                 y={target}
@@ -224,7 +244,8 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                         y={Math.max(cy - 14, 12)}
                         textAnchor='middle'
                         fontSize={12}
-                        fill={onColor ? '#fff' : 'currentColor'}
+                        fill={textColor}
+                        fontWeight='bold'
                       >
                         {displayValue}
                       </text>
@@ -243,7 +264,7 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
   return (
     <div className='flex h-full flex-col justify-between gap-1'>
       <div>
-        <div className={`${compact ? 'text-xl' : 'text-3xl'} font-bold tabular-nums`}>
+        <div className={`${compact ? 'text-xl' : 'text-3xl'} font-bold tabular-nums`} style={{ color: textColor }}>
           {displayValue}
         </div>
         <div className={`${mutedClass} text-xs`}>

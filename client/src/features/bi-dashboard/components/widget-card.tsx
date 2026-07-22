@@ -19,7 +19,7 @@ import {
 import { MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWidgetData, type Row } from '@/hooks/use-widget-data'
-import { getWidgetColorCss, type Widget } from '@/lib/dashboard-api'
+import { getWidgetColorCss, isLightColor, type Widget } from '@/lib/dashboard-api'
 import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
@@ -100,20 +100,21 @@ export function WidgetCard({
 }: WidgetCardProps) {
   const { t } = useTranslation()
 
-  // La tarjeta KPI (stat) va con el fondo de color completo y texto blanco
+  // La tarjeta KPI (stat) va con el fondo de color completo
   const isColoredCard = widget.kind === 'stat' && widget.color !== 'primary'
   const solid = getWidgetColorCss(widget.color).solid
+  const isLight = isColoredCard && isLightColor(widget.color)
 
   return (
     <Card
       className={cn(
         'flex h-full flex-col overflow-hidden gap-0',
-        isColoredCard && 'border-transparent text-white'
+        isColoredCard && (isLight ? 'border-transparent text-slate-900 font-medium' : 'border-transparent text-white')
       )}
       style={isColoredCard ? { background: solid } : undefined}
     >
       <CardHeader className={cn('flex-shrink-0 flex-row items-center justify-between space-y-0 px-2 py-0.5 gap-0.5 min-w-0', isEditing && !isSharedView && 'drag-handle cursor-move')}>
-        <CardTitle className='truncate text-xs font-medium leading-none flex-1 min-w-0'>
+        <CardTitle className={cn('truncate text-xs font-medium leading-none flex-1 min-w-0', isColoredCard && isLight && 'text-slate-900 font-semibold')}>
           {widget.title}
         </CardTitle>
         {isEditing && !isSharedView && (
@@ -124,7 +125,7 @@ export function WidgetCard({
                 size='icon'
                 className={cn(
                   'size-5 shrink-0 p-0',
-                  isColoredCard && 'text-white hover:bg-white/20 hover:text-white'
+                  isColoredCard && (isLight ? 'text-slate-900 hover:bg-black/10 hover:text-slate-900' : 'text-white hover:bg-white/20 hover:text-white')
                 )}
                 onPointerDown={(e) => e.stopPropagation()}
               >
