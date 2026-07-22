@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronUp, Palette, Sparkles } from 'lucide-react'
-import { ColorPicker } from '@/components/ui/color-picker'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import { biApi, type Connector } from '@/lib/bi-api'
 import { listScalarCalculatedMeasureNames, peekConnectorSemanticModel, getConnectorSemanticModel, useModelVersion } from '@/lib/semantic-layer'
 import {
@@ -687,34 +685,6 @@ export function WidgetDialog({
                     <span className='sr-only'>{t(WIDGET_COLOR_LABELS[c])}</span>
                   </button>
                 ))}
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type='button'
-                      title={t('Paleta de colores personalizada')}
-                      className={cn(
-                        'size-8 rounded-full border-2 transition-all relative flex items-center justify-center shadow-xs hover:scale-110 active:scale-95 cursor-pointer',
-                        color.startsWith('#')
-                          ? 'border-foreground ring-2 ring-foreground/30 scale-110'
-                          : 'border-dashed border-muted-foreground/50 opacity-80 hover:opacity-100 bg-muted/20'
-                      )}
-                      style={color.startsWith('#') ? { backgroundColor: color } : undefined}
-                    >
-                      {color.startsWith('#') ? (
-                        <span className='size-2 rounded-full bg-white shadow-xs' />
-                      ) : (
-                        <Palette className='size-4 text-muted-foreground' />
-                      )}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align='start' className='p-0 border-none bg-transparent shadow-none w-auto'>
-                    <ColorPicker
-                      value={color.startsWith('#') ? color : '#F54927'}
-                      onChange={(hex) => setColor(hex)}
-                    />
-                  </PopoverContent>
-                </Popover>
               </div>
             </div>
           )}

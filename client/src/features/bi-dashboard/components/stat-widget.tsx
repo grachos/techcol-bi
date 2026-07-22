@@ -149,12 +149,14 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                 <Tooltip
                   formatter={((v: number | string) => applyFormat(Number(v), format)) as never}
                   contentStyle={{
-                    background: 'var(--card)',
-                    color: 'var(--card-foreground)',
-                    border: '1px solid var(--border)',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
                     borderRadius: 8,
                     fontSize: 12,
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                   }}
+                  labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#0f172a' }}
                 />
                 <ReferenceLine
                   y={target}
@@ -207,16 +209,18 @@ export function StatWidget({ widget, activeFilters, onColor }: StatWidgetProps) 
                 width={48}
                 stroke={textColor}
               />
-              <Tooltip
-                formatter={((v: number | string) => applyFormat(Number(v), format)) as never}
-                contentStyle={{
-                  background: 'var(--card)',
-                  color: 'var(--card-foreground)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-              />
+                <Tooltip
+                  formatter={((v: number | string) => applyFormat(Number(v), format)) as never}
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  }}
+                  labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#0f172a' }}
+                />
               <ReferenceLine
                 y={target}
                 stroke={targetColor}

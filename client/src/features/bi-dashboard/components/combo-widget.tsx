@@ -105,11 +105,14 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
         <Tooltip
           cursor={{ fill: 'transparent' }}
           contentStyle={{
-            background: 'var(--background)',
-            border: '1px solid var(--border)',
+            backgroundColor: '#ffffff',
+            border: '1px solid #cbd5e1',
             borderRadius: 8,
             fontSize: 12,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           }}
+          labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+          itemStyle={{ color: '#0f172a' }}
         />
         {line && (
           <Area

@@ -325,10 +325,11 @@ function renderChart(
   }
 
   const tooltipStyle = {
-    background: 'var(--background)',
-    border: '1px solid var(--border)',
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
     borderRadius: 8,
     fontSize: 12,
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
   }
   const chartMargin = compact
     ? { top: 4, right: 4, left: 4, bottom: 4 }
@@ -358,7 +359,7 @@ function renderChart(
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#0f172a', fontWeight: 'bold' }} itemStyle={{ color: '#0f172a' }} />
         <Line
           type='monotone'
           dataKey={yKey}
@@ -376,7 +377,7 @@ function renderChart(
         <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
         <XAxis {...xAxisProps} />
         <YAxis {...yAxisProps} />
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#0f172a', fontWeight: 'bold' }} itemStyle={{ color: '#0f172a' }} />
         <Area
           type='monotone'
           dataKey={yKey}
@@ -395,7 +396,7 @@ function renderChart(
     const showLabels = !compact && data.length <= 6
     return (
       <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#0f172a', fontWeight: 'bold' }} itemStyle={{ color: '#0f172a' }} />
         <Pie
           data={data}
           dataKey={yKey}
@@ -421,7 +422,7 @@ function renderChart(
       <CartesianGrid strokeDasharray='3 3' opacity={0.3} />
       <XAxis {...xAxisProps} />
       <YAxis {...yAxisProps} />
-      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={tooltipStyle} />
+      <Tooltip cursor={{ fill: 'transparent' }} contentStyle={tooltipStyle} labelStyle={{ color: '#0f172a', fontWeight: 'bold' }} itemStyle={{ color: '#0f172a' }} />
       <Bar dataKey={yKey} fill={mainColor} radius={[4, 4, 0, 0]} />
     </BarChart>
   )
