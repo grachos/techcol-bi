@@ -138,6 +138,8 @@ export interface SyncStatus {
   last_watermark?: string | null
   row_count: number | null
   last_error?: string | null
+  min_date?: string | null
+  max_date?: string | null
 }
 
 export interface SyncResult {

@@ -12,6 +12,7 @@ import { invalidateConnectorCache } from "../services/connector-cache";
 import { runAggregateCached } from "../services/cached-aggregate";
 import { getDistinctValues } from "../services/distinct-values";
 import { runSync } from "../services/sync-service";
+import { tableExists, getMinAndMaxDate } from "../services/analytics-db";
 import { getRawRowsForConnector } from "../services/rows-source";
 import { ConnectorFactory } from "../connectors/ConnectorFactory";
 import { CONNECTOR_TYPES, ConnectorType } from "../connectors/BaseConnector";
@@ -301,7 +302,23 @@ router.get("/:id/sync", async (req: Request, res: Response) => {
        WHERE s.connector_id = ?`,
       [req.params.id]
     );
-    res.json(rows[0] ?? { status: "idle", last_sync_at: null, row_count: null });
+    const syncData: any = rows[0] ?? { status: "idle", last_sync_at: null, row_count: null };
+
+    const [connRows]: any = await pool.query(
+      "SELECT date_column FROM connectors WHERE id = ?",
+      [req.params.id]
+    );
+    const connector = connRows[0];
+    if (connector?.date_column) {
+      const exists = await tableExists(Number(req.params.id));
+      if (exists) {
+        const { minDate, maxDate } = await getMinAndMaxDate(Number(req.params.id), connector.date_column);
+        syncData.min_date = minDate;
+        syncData.max_date = maxDate;
+      }
+    }
+
+    res.json(syncData);
   } catch (error: any) {
     serverError(res, "connectors", error);
   }

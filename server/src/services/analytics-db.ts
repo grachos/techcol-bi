@@ -153,6 +153,22 @@ export async function getMaxDate(connectorId: number, dateColumn: string): Promi
   return row?.d ?? null;
 }
 
+export async function getMinAndMaxDate(
+  connectorId: number,
+  dateColumn: string
+): Promise<{ minDate: string | null; maxDate: string | null }> {
+  try {
+    const conn = await getAnalyticsDb();
+    const res = await conn.runAndReadAll(
+      `SELECT MIN(CAST("${dateColumn}" AS VARCHAR)) AS min_d, MAX(CAST("${dateColumn}" AS VARCHAR)) AS max_d FROM "${factTableName(connectorId)}"`
+    );
+    const row = res.getRowObjectsJson()[0] as { min_d: string | null; max_d: string | null } | undefined;
+    return { minDate: row?.min_d ?? null, maxDate: row?.max_d ?? null };
+  } catch {
+    return { minDate: null, maxDate: null };
+  }
+}
+
 export async function dropTable(connectorId: number): Promise<void> {
   const conn = await getAnalyticsDb();
   await conn.run(`DROP TABLE IF EXISTS "${factTableName(connectorId)}"`);
