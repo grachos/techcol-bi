@@ -6,7 +6,7 @@ import type { FeatureCollection, Geometry } from 'geojson'
 import type { Topology } from 'topojson-specification'
 import worldTopo from 'world-atlas/countries-110m.json'
 import { useWidgetData, type Row } from '@/hooks/use-widget-data'
-import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
+import { getWidgetColorCss, type Widget } from '@/lib/dashboard-api'
 import { type ActiveFilters } from '@/lib/widget-filters'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
@@ -76,7 +76,7 @@ export function MapWidget({ widget, activeFilters }: MapWidgetProps) {
     return { valueByName: map, maxValue: max }
   }, [filteredRows, regionKey, valueKey])
 
-  const solid = WIDGET_COLOR_CSS[widget.color].solid
+  const solid = getWidgetColorCss(widget.color).solid
   const hasData = valueByName.size > 0
 
   if (isLoading) return <WidgetLoading />

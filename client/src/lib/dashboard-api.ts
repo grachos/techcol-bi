@@ -86,6 +86,17 @@ export const WIDGET_COLOR_CSS: Record<
   teal: { solid: 'oklch(0.6 0.12 195)', soft: 'oklch(0.6 0.12 195 / 0.15)' },
 }
 
+export function getWidgetColorCss(color?: string): { solid: string; soft: string } {
+  if (!color) return WIDGET_COLOR_CSS.primary
+  if (color in WIDGET_COLOR_CSS) {
+    return WIDGET_COLOR_CSS[color as WidgetColor]
+  }
+  if (color.startsWith('#')) {
+    return { solid: color, soft: `${color}26` }
+  }
+  return { solid: color, soft: color }
+}
+
 export interface DashboardSummary {
   id: number
   name: string

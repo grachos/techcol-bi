@@ -49,12 +49,13 @@ async function handle<T>(res: Response): Promise<T> {
 export const aiApi = {
   suggestWidget: (
     prompt: string,
-    calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>
+    calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>,
+    connectorsWithColumns?: Array<{ id: number; name: string; columns: string[] }>
   ): Promise<WidgetSuggestion> =>
     apiFetch('/api/ai/suggest-widget', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, calculatedMeasures }),
+      body: JSON.stringify({ prompt, calculatedMeasures, connectorsWithColumns }),
     }).then((r) => handle(r)),
 
   editWidget: (

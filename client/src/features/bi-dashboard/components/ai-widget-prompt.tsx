@@ -36,9 +36,17 @@ export function AiWidgetPrompt({ disabled, connectors, onSuggestion }: AiWidgetP
         } catch {
           return []
         }
+      const connectorsWithColumns = (connectors ?? []).map((c) => {
+        try {
+          const model = peekConnectorSemanticModel(c.id)
+          const columns = model ? model.getFieldCatalog().map((f) => f.name) : []
+          return { id: Number(c.id), name: String(c.name ?? ''), columns }
+        } catch {
+          return { id: Number(c.id), name: String(c.name ?? ''), columns: [] }
+        }
       })
 
-      const suggestion = await aiApi.suggestWidget(prompt, calculatedMeasures)
+      const suggestion = await aiApi.suggestWidget(prompt, calculatedMeasures, connectorsWithColumns)
       onSuggestion(suggestion)
       setPrompt('')
     } catch (error) {

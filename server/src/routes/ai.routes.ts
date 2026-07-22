@@ -90,35 +90,48 @@ async function describeConnector(
   }
 }
 
-async function describeConnectors(userId: number): Promise<ConnectorSummary[]> {
+async function describeConnectors(
+  userId: number,
+  clientConnectors?: Array<{ id: number; name: string; columns: string[] }>
+): Promise<ConnectorSummary[]> {
   const [rows]: any = await pool.query(
     "SELECT id, name, type, config FROM connectors WHERE user_id = ?",
     [userId]
   );
 
+  const defaultParams = {
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    to: new Date().toISOString().slice(0, 10),
+  };
+
   const summaries = await Promise.all(
     (rows as ConnectorRow[]).map(async (row): Promise<ConnectorSummary> => {
+      const clientMatch = (clientConnectors ?? []).find((c) => Number(c.id) === Number(row.id));
+      const clientCols = Array.isArray(clientMatch?.columns) ? clientMatch.columns : [];
+
       try {
         const config = decryptConfig(parseStoredConfig(row.config));
         const instance = ConnectorFactory.create(row.type, config);
-        const data = await instance.fetchData();
+        const data = await instance.fetchData(defaultParams);
         const firstRow = Array.isArray(data)
           ? data.find((d) => typeof d === "object" && d !== null)
           : null;
+        const fetchedCols = firstRow ? Object.keys(firstRow) : [];
+        const mergedCols = Array.from(new Set([...fetchedCols, ...clientCols]));
+
         return {
           id: row.id,
           name: row.name,
           type: row.type,
-          columns: firstRow ? Object.keys(firstRow) : [],
+          columns: mergedCols,
           sampleRow: firstRow ?? null,
         };
       } catch {
-        // Si el conector falla al leer, se ofrece igual pero sin columnas conocidas
         return {
           id: row.id,
           name: row.name,
           type: row.type,
-          columns: [],
+          columns: clientCols,
           sampleRow: null,
         };
       }
@@ -163,7 +176,7 @@ Tipos de widget disponibles (propiedad "kind"):
 9. "calendar": Calendario de fechas. Usar "xKey" (columna de fecha).
 10. "clock": Reloj en vivo.
 
-Colores válidos: primary, pink, blue, green, orange, purple, teal.
+Colores válidos: primary, pink, blue, green, orange, purple, teal o cualquier código Hex (ej: #F54927).
 
 REGLAS CRÍTICAS DE SELECCIÓN:
 - Si el usuario pide un filtro de selección (palabras clave: "filtro de seleccion", "filtro", "desplegable", "dropdown", "select", "filtrar por"), DEBES responder con "kind": "filter_select" y asignar "filterColumn" con el nombre de la columna adecuada. NUNCA respondas "chart" ni "table" si el usuario pidió un filtro.
@@ -179,7 +192,7 @@ Responde ÚNICAMENTE un objeto JSON estructurado con la siguiente forma exacta:
   "connectorId": <numero_id_conector>,
   "title": "<titulo corto y descriptivo>",
   "chartType": "<bar|line|area|pie|table>",
-  "color": "<primary|pink|blue|green|orange|purple|teal>",
+  "color": "<primary|pink|blue|green|orange|purple|teal|#HEX>",
   "xKey": "<nombre de columna o columnas separadas por coma, o null>",
   "yKey": "<nombre de columna/métrica o columnas separadas por coma, o null>",
   "filterColumn": "<nombre de columna a filtrar, o null>",
@@ -190,13 +203,13 @@ Responde ÚNICAMENTE un objeto JSON estructurado con la siguiente forma exacta:
 
 // Generar una sugerencia de widget a partir de una descripcion en lenguaje natural
 router.post("/suggest-widget", async (req: Request, res: Response) => {
-  const { prompt, calculatedMeasures } = req.body ?? {};
+  const { prompt, calculatedMeasures, connectorsWithColumns } = req.body ?? {};
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "Campo requerido: prompt" });
   }
 
   try {
-    const connectors = await describeConnectors(req.userId!);
+    const connectors = await describeConnectors(req.userId!, connectorsWithColumns);
     if (connectors.length === 0) {
       return res.status(400).json({
         error: "No tienes conectores configurados todavía. Crea uno primero.",

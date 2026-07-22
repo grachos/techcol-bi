@@ -19,7 +19,7 @@ import {
 import { MoreVertical, Pencil, Sparkles, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWidgetData, type Row } from '@/hooks/use-widget-data'
-import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
+import { getWidgetColorCss, type Widget } from '@/lib/dashboard-api'
 import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { type ActiveFilterValue, type ActiveFilters } from '@/lib/widget-filters'
 import { Button } from '@/components/ui/button'
@@ -102,7 +102,7 @@ export function WidgetCard({
 
   // La tarjeta KPI (stat) va con el fondo de color completo y texto blanco
   const isColoredCard = widget.kind === 'stat' && widget.color !== 'primary'
-  const solid = WIDGET_COLOR_CSS[widget.color].solid
+  const solid = getWidgetColorCss(widget.color).solid
 
   return (
     <Card
@@ -289,7 +289,7 @@ function renderChart(
   t: (key: string, opts?: Record<string, unknown>) => string,
   compact = false
 ) {
-  const mainColor = WIDGET_COLOR_CSS[color].solid
+  const mainColor = getWidgetColorCss(color).solid
   if (chartType === 'table') {
     return (
       <div className='h-full overflow-auto'>

@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useWidgetData, type Row } from '@/hooks/use-widget-data'
-import { WIDGET_COLOR_CSS, type Widget } from '@/lib/dashboard-api'
+import { getWidgetColorCss, type Widget } from '@/lib/dashboard-api'
 import { formatCompactNumber, truncateLabel } from '@/lib/format-number'
 import { type ActiveFilters } from '@/lib/widget-filters'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
@@ -72,7 +72,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
   if (!bars) return <WidgetEmpty text={t('No numeric columns to chart')} />
 
 
-  const barColor = WIDGET_COLOR_CSS[widget.color].solid
+  const barColor = getWidgetColorCss(widget.color).solid
   const lineColor = WIDGET_COLOR_CSS.pink.solid
   // Widget bajito: sin ejes para dejar todo el espacio a la grafica
   const compact = widget.layout.h <= 3
