@@ -36,6 +36,8 @@ export function AiWidgetPrompt({ disabled, connectors, onSuggestion }: AiWidgetP
         } catch {
           return []
         }
+      })
+
       const connectorsWithColumns = (connectors ?? []).map((c) => {
         try {
           const model = peekConnectorSemanticModel(c.id)
