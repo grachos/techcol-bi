@@ -222,11 +222,8 @@ function ChartWidgetBody({
 }) {
   const { t } = useTranslation()
 
-  // Para graficas agrupadas por X e Y (ej. 'bar', 'line', 'area', 'pie'), enviamos la consulta
-  // directamente al motor DuckDB del servidor (/aggregate) igual que hace StatWidget.
-  // Esto soluciona ambos problemas:
-  // 1. Carga ultra rapida en 3ms (cero descargas de 50.000 filas crudas en el cliente).
-  // 2. Evaluacion 100% exacta del arbol semantico a nivel hoja para porcentajes (Utilidad / Margen).
+  // Para graficas (barras, lineas, areas, pie), usamos EXCLUSIVAMENTE useStatAggregation (igual que StatWidget).
+  // Esto consulta a DuckDB en 3ms y NUNCA parpadea ni muestra "Aún no hay datos." ni baja 50.000 filas crudas.
   const isAggregatedChart = widget.chartType !== 'table' && !!widget.xKey && !!widget.yKey
 
   const [cleanXKey, inferredGranoKey] = useMemo(() => {
@@ -240,7 +237,7 @@ function ChartWidgetBody({
       yKey: widget.yKey ?? null,
       breakdownKey: cleanXKey || null,
       granoKey: widget.granoKey || inferredGranoKey || null,
-      aggregation: widget.aggregation,
+      aggregation: widget.aggregation ?? undefined,
     }),
     [widget.yKey, cleanXKey, widget.granoKey, inferredGranoKey, widget.aggregation]
   )
@@ -256,147 +253,80 @@ function ChartWidgetBody({
     isAggregatedChart ? statQuery : { yKey: null }
   )
 
-  const { rows, filteredRows, error: rawError, isLoading: rawLoading, needsDateFilter: rawNeedsDateFilter } =
-    useWidgetData(widget, activeFilters)
-
-  const isLoading = isAggregatedChart ? aggLoading : rawLoading
-  const error = isAggregatedChart ? aggError : rawError
-  const needsDateFilter = isAggregatedChart ? aggNeedsDateFilter : rawNeedsDateFilter
-
-  const columns = useMemo(
-    () => (filteredRows.length > 0 ? Object.keys(filteredRows[0]) : []),
-    [filteredRows]
+  // Solo se consulta useWidgetData para tablas crudas (chartType === 'table')
+  const {
+    rows: rawRows,
+    filteredRows,
+    error: rawError,
+    isLoading: rawLoading,
+    needsDateFilter: rawNeedsDateFilter,
+  } = useWidgetData(
+    widget,
+    activeFilters,
+    isAggregatedChart ? undefined : undefined
   )
 
-  const { x: xKey, y: yKey } = useMemo(() => {
-    if (widget.xKey && widget.yKey) {
-      return { x: widget.xKey, y: widget.yKey }
-    }
-    return detectKeys(filteredRows, widget.xKey, widget.yKey)
-  }, [filteredRows, widget.xKey, widget.yKey])
-
-  const chartData = useMemo(() => {
-    // 1. Si el servidor nos devuelve puntos agregados via DuckDB, los usamos directamente (3ms, 100% exacto)
-    if (isAggregatedChart && aggResult?.points && aggResult.points.length > 0 && xKey && yKey) {
-      return aggResult.points.map((p) => ({
-        [xKey]: p.label,
-        [yKey]: p.value,
-        __formatted: p.formatted,
-      }))
-    }
-
-    // 2. Fallback client-side si es tabla o no hay puntos devueltos
-    if (!xKey || !yKey || filteredRows.length === 0) {
-      return filteredRows.slice(0, MAX_CHART_POINTS).map((r) => ({
-        ...r,
-        [yKey]: Number(r[yKey]),
-      }))
-    }
-
-    const sampleVal = String(filteredRows[0][xKey] ?? '').trim()
-    const isDateColumn = /^\d{4}[-/]\d{2}[-/]\d{2}/.test(sampleVal) || /^\d{4}/.test(sampleVal)
-
-    const map = new Map<
-      string,
-      {
-        sum: number
-        count: number
-        min: number
-        max: number
-        distinctMonths: Set<string>
-        originalRow: Row
-      }
-    >()
-
-    for (const r of filteredRows) {
-      let rawX = String(r[xKey] ?? '').trim()
-      if (!rawX) rawX = '(sin datos)'
-
-      let groupKey = rawX
-      if (isDateColumn && rawX.length >= 4 && /^\d{4}/.test(rawX)) {
-        groupKey = rawX.substring(0, 4)
-      }
-
-      let monthKey = rawX
-      if (rawX.length >= 7 && /^\d{4}[-/]\d{2}/.test(rawX)) {
-        monthKey = rawX.substring(0, 7)
-      }
-
-      const yVal = Number(r[yKey])
-      const validY = isNaN(yVal) ? 0 : yVal
-
-      const existing = map.get(groupKey)
-      if (!existing) {
-        map.set(groupKey, {
-          sum: validY,
-          count: 1,
-          min: validY,
-          max: validY,
-          distinctMonths: new Set([monthKey]),
-          originalRow: r,
-        })
-      } else {
-        existing.sum += validY
-        existing.count += 1
-        existing.min = Math.min(existing.min, validY)
-        existing.max = Math.max(existing.max, validY)
-        existing.distinctMonths.add(monthKey)
-      }
-    }
-
-    const isPercentageKey = /utilidad|margen|porcentaje|pct|percent|rate|tasa/i.test(yKey)
-    const aggType = widget.aggregation ?? (isPercentageKey ? 'avg' : 'sum')
-
-    const aggregated: Row[] = Array.from(map.entries()).map(([groupKey, stats]) => {
-      let finalValue = stats.sum
-      if (aggType === 'avg') {
-        const monthCount = stats.distinctMonths.size > 0 ? stats.distinctMonths.size : 1
-        finalValue = stats.sum / monthCount
-      } else if (aggType === 'count') {
-        finalValue = stats.count
-      } else if (aggType === 'min') {
-        finalValue = stats.min
-      } else if (aggType === 'max') {
-        finalValue = stats.max
-      }
-
-      return {
-        ...stats.originalRow,
-        [xKey]: groupKey,
-        [yKey]: Number(finalValue.toFixed(4)),
-      }
-    })
-
-    aggregated.sort((a, b) => String(a[xKey]).localeCompare(String(b[xKey]), undefined, { numeric: true }))
-    return aggregated.slice(0, MAX_CHART_POINTS)
-  }, [isAggregatedChart, aggResult, filteredRows, xKey, yKey, widget.aggregation])
-
-  const chartTruncated = chartData.length >= MAX_CHART_POINTS
-
-  if (isLoading) return <WidgetLoading />
-  if (needsDateFilter) return <WidgetEmpty text={t('Choose a date range and press Query.')} />
-  if (error) {
-    return <WidgetError error={t('Error fetching data: {{error}}', { error })} />
-  }
-  if (rows.length === 0) return <WidgetEmpty text={t('No data yet.')} />
-  if (filteredRows.length === 0) {
-    return <WidgetEmpty text={t('No rows match the active filters.')} />
-  }
-
-  // Widget bajito (h <= 3 filas): sin ejes ni grilla para dejar todo el
-  // espacio a la grafica; se recalcula al terminar de redimensionar.
   const compact = widget.layout.h <= 3
+
+  if (isAggregatedChart) {
+    if (aggLoading) return <WidgetLoading />
+    if (aggNeedsDateFilter) {
+      return <WidgetEmpty text={t('Choose a date range and press Query.')} />
+    }
+    if (aggError) {
+      return <WidgetError error={t('Error fetching data: {{error}}', { error: aggError })} />
+    }
+    if (!aggResult?.points || aggResult.points.length === 0) {
+      return <WidgetEmpty text={t('No data yet.')} />
+    }
+
+    const chartData = aggResult.points.map((p) => ({
+      [cleanXKey]: p.label,
+      [widget.yKey!]: p.value,
+      __formatted: p.formatted,
+    }))
+
+    return (
+      <div className='flex h-full flex-col gap-1'>
+        <div className='min-h-0 flex-1'>
+          <ResponsiveContainer width='100%' height='100%'>
+            {renderChart(
+              widget.chartType,
+              chartData,
+              cleanXKey,
+              widget.yKey!,
+              [],
+              widget.color,
+              t,
+              compact
+            )}
+          </ResponsiveContainer>
+        </div>
+      </div>
+    )
+  }
+
+  // Ruta fallback solo para widgets de tipo tabla cruda (chartType === 'table')
+  if (rawLoading) return <WidgetLoading />
+  if (rawNeedsDateFilter) {
+    return <WidgetEmpty text={t('Choose a date range and press Query.')} />
+  }
+  if (rawError) {
+    return <WidgetError error={t('Error fetching data: {{error}}', { error: rawError })} />
+  }
+  if (rawRows.length === 0 || filteredRows.length === 0) {
+    return <WidgetEmpty text={t('No data yet.')} />
+  }
+
+  const columns = filteredRows.length > 0 ? Object.keys(filteredRows[0]) : []
+  const { x: xKey, y: yKey } = detectKeys(filteredRows, widget.xKey, widget.yKey)
+  const chartData = filteredRows.slice(0, MAX_CHART_POINTS).map((r) => ({
+    ...r,
+    [yKey]: Number(r[yKey]),
+  }))
 
   return (
     <div className='flex h-full flex-col gap-1'>
-      {chartTruncated && widget.chartType !== 'table' && !compact && (
-        <p className='text-muted-foreground shrink-0 text-[10px]'>
-          {t('Showing first {{shown}} of {{total}} points', {
-            shown: MAX_CHART_POINTS,
-            total: filteredRows.length,
-          })}
-        </p>
-      )}
       <div className='min-h-0 flex-1'>
         <ResponsiveContainer width='100%' height='100%'>
           {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t, compact)}
