@@ -240,6 +240,16 @@ export const biApi = {
       body: JSON.stringify(config),
     }).then((r) => handle(r)),
 
+  getCalculatedMeasures: (id: number): Promise<unknown[]> =>
+    apiFetch(`/api/connectors/${id}/calculated-measures`).then((r) => handle(r)),
+
+  saveCalculatedMeasures: (id: number, measures: unknown[]): Promise<{ ok: boolean }> =>
+    apiFetch(`/api/connectors/${id}/calculated-measures`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ measures }),
+    }).then((r) => handle(r)),
+
   aggregate: (id: number, body: StatAggBody): Promise<StatAggResult> =>
     apiFetch(`/api/connectors/${id}/aggregate`, {
       method: 'POST',

@@ -20,6 +20,10 @@ export type WidgetKind =
   | 'map'
   | 'combo'
   | 'tree_grid'
+  | 'text_image'
+  | 'tab_container'
+  | 'action_button'
+  | 'ai_insights'
 
 export const WIDGET_KINDS: WidgetKind[] = [
   'chart',
@@ -28,6 +32,10 @@ export const WIDGET_KINDS: WidgetKind[] = [
   'progress',
   'map',
   'tree_grid',
+  'text_image',
+  'tab_container',
+  'action_button',
+  'ai_insights',
   'calendar',
   'clock',
   'filter_date',
@@ -43,6 +51,7 @@ export const KINDS_REQUIRING_CONNECTOR: WidgetKind[] = [
   'map',
   'combo',
   'tree_grid',
+  'tab_container',
 ]
 
 export type Aggregation = 'sum' | 'avg' | 'count' | 'min' | 'max'
@@ -232,6 +241,8 @@ export const dashboardApi = {
     dashboardId: number,
     widgetId: number,
     payload: Partial<{
+      kind: WidgetKind
+      connectorId: number | null
       title: string
       chartType: ChartType
       color: WidgetColor

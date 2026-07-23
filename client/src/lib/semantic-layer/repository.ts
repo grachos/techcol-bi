@@ -23,7 +23,17 @@ export class InMemoryMetricsRepository implements MetricsRepository {
 }
 
 export class LocalStorageMetricsRepository implements MetricsRepository {
-  constructor(private readonly storageKey: string) {}
+  private connectorId: number | null = null
+
+  constructor(
+    private readonly storageKey: string,
+    private readonly onSave?: (connectorId: number, measures: Measure[]) => void
+  ) {
+    const match = storageKey.match(/semantic-connector-(\d+)-metrics/)
+    if (match) {
+      this.connectorId = parseInt(match[1], 10)
+    }
+  }
 
   load(): Measure[] {
     try {
@@ -34,12 +44,22 @@ export class LocalStorageMetricsRepository implements MetricsRepository {
     }
   }
 
-  save(measures: Measure[]): void {
+  saveLocalOnly(measures: Measure[]): void {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(measures))
     } catch {
-      // almacenamiento no disponible (modo privado, cuota excedida): se ignora,
-      // las medidas calculadas quedan solo en memoria para esta sesion
+      // ignore
+    }
+  }
+
+  save(measures: Measure[]): void {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(measures))
+      if (this.connectorId && this.onSave) {
+        this.onSave(this.connectorId, measures)
+      }
+    } catch {
+      // ignore
     }
   }
 }

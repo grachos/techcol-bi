@@ -49,6 +49,10 @@ import { ProgressWidget } from './progress-widget'
 import { SelectFilterWidget } from './select-filter-widget'
 import { StatWidget } from './stat-widget'
 import { TreeGridWidget } from './tree-grid-widget'
+import { TextImageWidget } from './text-image-widget'
+import { TabContainerWidget } from './tab-container-widget'
+import { ActionButtonWidget } from './action-button-widget'
+import { AiInsightsWidget } from './ai-insights-widget'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
 
 const MAX_TABLE_ROWS = 100
@@ -146,7 +150,7 @@ export function WidgetCard({
           </DropdownMenu>
         )}
       </CardHeader>
-      <CardContent className='min-h-0 flex-1 px-2 py-1'>
+      <CardContent className='flex flex-col h-full min-h-0 flex-1 px-2 py-1'>
         {/*
          * CONSIGNA para un `kind` nuevo que AGREGUE/AGRUPE datos (sumar,
          * promediar, agrupar por dimension -- no solo mostrar filas crudas
@@ -208,6 +212,17 @@ export function WidgetCard({
             onChange={onFilterChange}
           />
         )}
+        {widget.kind === 'text_image' && <TextImageWidget widget={widget} />}
+        {widget.kind === 'tab_container' && (
+          <TabContainerWidget widget={widget} activeFilters={activeFilters} />
+        )}
+        {widget.kind === 'action_button' && (
+          <ActionButtonWidget
+            widget={widget}
+            onClearFilters={() => onFilterChange('', null)}
+          />
+        )}
+        {widget.kind === 'ai_insights' && <AiInsightsWidget widget={widget} />}
       </CardContent>
     </Card>
   )
@@ -287,8 +302,8 @@ function ChartWidgetBody({
     }))
 
     return (
-      <div className='flex h-full flex-col gap-1'>
-        <div className='min-h-0 flex-1'>
+      <div className='flex h-full w-full flex-col gap-1 min-h-[120px]'>
+        <div className='h-full w-full min-h-[120px] flex-1'>
           <ResponsiveContainer width='100%' height='100%'>
             {renderChart(
               widget.chartType,
@@ -326,8 +341,8 @@ function ChartWidgetBody({
   }))
 
   return (
-    <div className='flex h-full flex-col gap-1'>
-      <div className='min-h-0 flex-1'>
+    <div className='flex h-full w-full flex-col gap-1 min-h-[120px]'>
+      <div className='h-full w-full min-h-[120px] flex-1'>
         <ResponsiveContainer width='100%' height='100%'>
           {renderChart(widget.chartType, chartData, xKey, yKey, columns, widget.color, t, compact)}
         </ResponsiveContainer>

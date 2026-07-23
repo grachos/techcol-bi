@@ -17,6 +17,8 @@ import type { RuntimeParams } from "../connectors/BaseConnector";
 import type { ActiveFilters } from "../../../client/src/lib/widget-filters";
 import type { Measure } from "../../../client/src/lib/semantic-layer/types";
 
+import { pool } from "../db";
+
 export async function runAggregateCached(
   connector: ConnectorConfigRow,
   params: RuntimeParams,
@@ -25,17 +27,34 @@ export async function runAggregateCached(
   query: StatQuery | TreeQuery,
   calculatedMeasures: Measure[]
 ) {
+  // Si no se pasaron medidas calculadas en el request, se buscan en la BD del conector
+  let effectiveMeasures = calculatedMeasures;
+  if (!effectiveMeasures || effectiveMeasures.length === 0) {
+    try {
+      const [dbRows]: any = await pool.query(
+        "SELECT calculated_measures FROM connectors WHERE id = ?",
+        [connector.id]
+      );
+      if (dbRows[0]?.calculated_measures) {
+        const raw = dbRows[0].calculated_measures;
+        effectiveMeasures = typeof raw === "string" ? JSON.parse(raw) : raw;
+      }
+    } catch (e) {
+      console.error("Error loading calculated_measures from DB:", e);
+    }
+  }
+
   const synced = await tableExists(connector.id);
 
   const compute = async () => {
     const { rows } = await getRowsForAggregation(connector, params, activeFilters, {
       mode,
       query,
-      calculatedMeasures,
+      calculatedMeasures: effectiveMeasures,
     });
     return mode === "tree"
-      ? aggregateTree(rows, calculatedMeasures, activeFilters, query as TreeQuery)
-      : aggregateStat(rows, calculatedMeasures, activeFilters, query as StatQuery);
+      ? aggregateTree(rows, effectiveMeasures, activeFilters, query as TreeQuery)
+      : aggregateStat(rows, effectiveMeasures, activeFilters, query as StatQuery);
   };
 
   if (!synced) return compute();

@@ -72,6 +72,41 @@ router.get("/:id", requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
+// Obtener medidas calculadas de un conector
+router.get("/:id/calculated-measures", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT calculated_measures FROM connectors WHERE id = ?",
+      [req.params.id]
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+    const raw = rows[0].calculated_measures;
+    const measures = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : [];
+    res.json(measures);
+  } catch (error: any) {
+    serverError(res, "connectors", error);
+  }
+});
+
+// Guardar medidas calculadas de un conector
+router.put("/:id/calculated-measures", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { measures } = req.body ?? {};
+    if (!Array.isArray(measures)) {
+      return res.status(400).json({ error: "measures debe ser un array" });
+    }
+    await pool.query(
+      "UPDATE connectors SET calculated_measures = ? WHERE id = ?",
+      [JSON.stringify(measures), req.params.id]
+    );
+    res.json({ updated: true });
+  } catch (error: any) {
+    serverError(res, "connectors", error);
+  }
+});
+
 // Crear conector: cifra las credenciales antes de guardar
 router.post("/", requireAdmin, async (req: Request, res: Response) => {
   const { name, type, config } = req.body ?? {};

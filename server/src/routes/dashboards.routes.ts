@@ -27,6 +27,10 @@ const WIDGET_KINDS = [
   "map",
   "combo",
   "tree_grid",
+  "text_image",
+  "tab_container",
+  "action_button",
+  "ai_insights",
 ] as const;
 type WidgetKind = (typeof WIDGET_KINDS)[number];
 
@@ -63,6 +67,7 @@ const KINDS_REQUIRING_CONNECTOR: WidgetKind[] = [
   "map",
   "combo",
   "tree_grid",
+  "tab_container",
 ];
 
 interface WidgetLayout {
@@ -591,6 +596,8 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
 // Actualizar widget (config y/o layout individual)
 router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Response) => {
   const {
+    kind,
+    connectorId,
     title,
     chartType,
     color,
@@ -603,6 +610,11 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
     layout,
   } = req.body ?? {};
 
+  if (kind !== undefined && !WIDGET_KINDS.includes(kind)) {
+    return res.status(400).json({
+      error: `Tipo de widget invalido. Soportados: ${WIDGET_KINDS.join(", ")}`,
+    });
+  }
   if (chartType !== undefined && !CHART_TYPES.includes(chartType)) {
     return res.status(400).json({
       error: `Tipo de grafica invalido. Soportados: ${CHART_TYPES.join(", ")}`,
@@ -626,6 +638,14 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
 
     const fields: string[] = [];
     const values: unknown[] = [];
+    if (kind !== undefined) {
+      fields.push("kind = ?");
+      values.push(kind);
+    }
+    if (connectorId !== undefined) {
+      fields.push("connector_id = ?");
+      values.push(connectorId ?? null);
+    }
     if (title !== undefined) {
       fields.push("title = ?");
       values.push(title);

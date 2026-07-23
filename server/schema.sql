@@ -56,11 +56,15 @@ CREATE TABLE IF NOT EXISTS connectors (
   name VARCHAR(255) NOT NULL,
   type ENUM('rest_api', 'google_sheets', 'mysql', 'postgresql') NOT NULL,
   config JSON NOT NULL, -- credenciales cifradas (AES-256): { iv, data, tag }
+  calculated_measures JSON NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_connectors_user (user_id)
 );
+
+ALTER TABLE connectors
+  ADD COLUMN IF NOT EXISTS calculated_measures JSON NULL AFTER config;
 
 -- Cache de datos obtenidos por conector (TTL de 60s aplicado en la app), para
 -- no golpear la fuente en cada refresh de cada widget que la use.
@@ -130,8 +134,7 @@ CREATE TABLE IF NOT EXISTS dashboard_widgets (
   id INT PRIMARY KEY AUTO_INCREMENT,
   dashboard_id INT NOT NULL,
   connector_id INT NULL, -- opcional: 'clock' y 'calendar' standalone no necesitan conector
-  kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo', 'tree_grid')
-    NOT NULL DEFAULT 'chart',
+  kind VARCHAR(64) NOT NULL DEFAULT 'chart',
   title VARCHAR(255) NOT NULL,
   chart_type ENUM('bar', 'line', 'area', 'pie', 'table') NOT NULL DEFAULT 'bar', -- solo kind='chart'
   color ENUM('primary', 'pink', 'blue', 'green', 'orange', 'purple', 'teal') NOT NULL DEFAULT 'primary',
@@ -149,6 +152,7 @@ CREATE TABLE IF NOT EXISTS dashboard_widgets (
 
 -- Migracion idempotente para bases ya creadas antes de agregar kind/aggregation/filter_column
 ALTER TABLE dashboard_widgets MODIFY COLUMN connector_id INT NULL;
+ALTER TABLE dashboard_widgets MODIFY COLUMN kind VARCHAR(64) NOT NULL DEFAULT 'chart';
 ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS kind ENUM('chart', 'stat', 'calendar', 'clock', 'filter_date', 'filter_select', 'progress', 'map', 'combo', 'tree_grid')
     NOT NULL DEFAULT 'chart' AFTER connector_id;

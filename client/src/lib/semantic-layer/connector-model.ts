@@ -25,14 +25,59 @@ function knownFieldNames(model: SemanticModel): Set<string> {
   return names
 }
 
+import { biApi } from '../bi-api'
+import type { Measure } from './types'
+
+const pendingSyncs = new Set<number>()
+const syncedConnectors = new Set<number>()
+
+export function invalidateCalculatedMeasuresSync(connectorId?: number): void {
+  if (connectorId) {
+    syncedConnectors.delete(connectorId)
+  } else {
+    syncedConnectors.clear()
+  }
+}
+
+export function syncCalculatedMeasuresFromBackend(connectorId: number): void {
+  if (pendingSyncs.has(connectorId) || syncedConnectors.has(connectorId)) return
+  pendingSyncs.add(connectorId)
+  syncedConnectors.add(connectorId)
+
+  biApi
+    .getCalculatedMeasures(connectorId)
+    .then((rawMeasures) => {
+      const measures = rawMeasures as Measure[]
+      if (Array.isArray(measures) && measures.length > 0) {
+        const repo = new LocalStorageMetricsRepository(
+          `semantic-connector-${connectorId}-metrics`
+        )
+        repo.saveLocalOnly(measures)
+        const model = peekConnectorSemanticModel(connectorId)
+        if (model) {
+          measures.forEach((m) => {
+            try {
+              model.registerMeasure(m)
+            } catch {
+              // ignora duplicados
+            }
+          })
+        }
+      }
+    })
+    .catch(() => {
+      syncedConnectors.delete(connectorId)
+    })
+    .finally(() => {
+      pendingSyncs.delete(connectorId)
+    })
+}
+
 export function getConnectorSemanticModel(connectorId: number, rows: Row[]): SemanticModel | null {
+  syncCalculatedMeasuresFromBackend(connectorId)
+
   const cached = modelCache.get(connectorId)
   if (cached) {
-    // El primero que construye el modelo puede haber traido filas PROYECTADAS
-    // (un filtro de seleccion pide solo su columna), lo que dejaria el modelo
-    // con un solo campo para siempre. Si llegan filas con columnas que aun no
-    // conoce, se re-infiere para completarlo -- registerInferredFields es
-    // aditivo, y el chequeo de claves nuevas lo hace correr solo al principio.
     if (rows.length > 0) {
       const known = knownFieldNames(cached)
       if (Object.keys(rows[0]).some((k) => !known.has(k))) {
@@ -44,7 +89,10 @@ export function getConnectorSemanticModel(connectorId: number, rows: Row[]): Sem
   if (rows.length === 0) return null
 
   const model = new SemanticModel({
-    repository: new LocalStorageMetricsRepository(`semantic-connector-${connectorId}-metrics`),
+    repository: new LocalStorageMetricsRepository(
+      `semantic-connector-${connectorId}-metrics`,
+      (id, measures) => biApi.saveCalculatedMeasures(id, measures).catch(() => {})
+    ),
   })
 
   registerInferredFields(model, rows)
@@ -60,11 +108,15 @@ export function peekConnectorSemanticModel(connectorId: number): SemanticModel |
 
 /** Devuelve todas las medidas calculadas guardadas para un conector (desde cache o localStorage si no esta instanciado). */
 export function getCalculatedMeasuresForConnector(connectorId: number): Measure[] {
+  syncCalculatedMeasuresFromBackend(connectorId)
   const model = peekConnectorSemanticModel(connectorId)
   if (model) {
     return model.listMeasures().filter((m) => m.isCalculated)
   }
-  const repo = new LocalStorageMetricsRepository(`semantic-connector-${connectorId}-metrics`)
+  const repo = new LocalStorageMetricsRepository(
+    `semantic-connector-${connectorId}-metrics`,
+    (id, measures) => biApi.saveCalculatedMeasures(id, measures).catch(() => {})
+  )
   return repo.load()
 }
 

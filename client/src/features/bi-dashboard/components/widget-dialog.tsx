@@ -58,6 +58,10 @@ const WIDGET_KIND_LABELS: Record<WidgetKind, string> = {
   progress: 'Progress bars',
   map: 'Map',
   tree_grid: 'Analytical tree table',
+  text_image: 'Text & Image',
+  tab_container: 'Tab container',
+  action_button: 'Action button',
+  ai_insights: 'AI Insights',
   calendar: 'Calendar',
   clock: 'Clock',
   filter_date: 'Date filter',
@@ -89,6 +93,10 @@ const DEFAULT_LAYOUT: Record<WidgetKind, WidgetLayout> = {
   progress: { x: 0, y: 0, w: 4, h: 6 },
   map: { x: 0, y: 0, w: 6, h: 8 },
   tree_grid: { x: 0, y: 0, w: 6, h: 8 },
+  text_image: { x: 0, y: 0, w: 4, h: 4 },
+  tab_container: { x: 0, y: 0, w: 6, h: 6 },
+  action_button: { x: 0, y: 0, w: 3, h: 2 },
+  ai_insights: { x: 0, y: 0, w: 4, h: 4 },
   calendar: { x: 0, y: 0, w: 4, h: 8 },
   clock: { x: 0, y: 0, w: 3, h: 3 },
   filter_date: { x: 0, y: 0, w: 3, h: 3 },
@@ -103,10 +111,11 @@ const KINDS_WITH_COLOR: WidgetKind[] = [
   'progress',
   'map',
   'tree_grid',
+  'tab_container',
 ]
 
 // Kinds que usan columnas X/Y (eje/categoria y valor)
-const KINDS_WITH_XY: WidgetKind[] = ['chart', 'combo', 'progress', 'map']
+const KINDS_WITH_XY: WidgetKind[] = ['chart', 'combo', 'progress', 'map', 'tab_container']
 
 // tree_grid guarda listas separadas por coma en xKey (agrupar por) / yKey
 // (columnas de valor), reutilizando las mismas columnas de la BD sin agregar
@@ -489,7 +498,16 @@ export function WidgetDialog({
     })
 
   const handleSave = async () => {
-    if (!title.trim()) {
+    let finalTitle = title.trim()
+    if (!finalTitle && kind === 'action_button') {
+      const actionMap: Record<string, string> = {
+        clear_filters: 'Reiniciar Filtros',
+        export_pdf: 'Imprimir / Exportar PDF',
+        refresh_data: 'Actualizar Datos',
+        export_excel: 'Exportar a Excel',
+      }
+      finalTitle = actionMap[targetLabel] || 'Botón de Acción'
+    } else if (!finalTitle) {
       toast.warning(t('Give the widget a title'))
       return
     }
@@ -525,36 +543,38 @@ export function WidgetDialog({
     try {
       if (isEdit) {
         await dashboardApi.updateWidget(dashboardId, widget.id, {
-          title,
+          kind,
+          connectorId: connectorId ? Number(connectorId) : null,
+          title: finalTitle,
           chartType: kind === 'chart' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
-          aggregation: kind === 'stat' || kind === 'tree_grid' || kind === 'chart' ? aggregation : undefined,
-          targetValue: kind === 'stat' ? targetValueNum : undefined,
-          targetLabel: kind === 'stat' ? targetLabel.trim() || null : undefined,
-          filterColumn:
-            kind === 'filter_date' || kind === 'filter_select'
-              ? filterColumn
+          aggregation:
+            kind === 'stat' || kind === 'tree_grid' || kind === 'chart' || kind === 'tab_container'
+              ? aggregation
               : undefined,
+          targetValue: kind === 'stat' ? targetValueNum : undefined,
+          targetLabel: targetLabel.trim() || null,
+          filterColumn: filterColumn.trim() || null,
         })
         toast.success(t('Widget updated'))
       } else {
         await dashboardApi.addWidget(dashboardId, {
           connectorId: connectorId ? Number(connectorId) : null,
-          title,
+          title: finalTitle,
           kind,
           chartType: kind === 'chart' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
-          aggregation: kind === 'stat' || kind === 'tree_grid' || kind === 'chart' ? aggregation : undefined,
-          targetValue: kind === 'stat' ? targetValueNum : undefined,
-          targetLabel: kind === 'stat' ? targetLabel.trim() || null : undefined,
-          filterColumn:
-            kind === 'filter_date' || kind === 'filter_select'
-              ? filterColumn
+          aggregation:
+            kind === 'stat' || kind === 'tree_grid' || kind === 'chart' || kind === 'tab_container'
+              ? aggregation
               : undefined,
+          targetValue: kind === 'stat' ? targetValueNum : undefined,
+          targetLabel: targetLabel.trim() || null,
+          filterColumn: filterColumn.trim() || null,
           layout: DEFAULT_LAYOUT[kind],
         })
         toast.success(t('Widget added'))
@@ -689,7 +709,7 @@ export function WidgetDialog({
             </div>
           )}
 
-          {kind === 'chart' && (
+          {(kind === 'chart' || kind === 'tab_container') && (
             <div className='space-y-2'>
               <Label>{t('Chart type')}</Label>
               <Select
@@ -710,7 +730,7 @@ export function WidgetDialog({
             </div>
           )}
 
-          {((kind === 'chart' && chartType !== 'table') || kind === 'combo') && (
+          {((kind === 'chart' && chartType !== 'table') || kind === 'combo' || kind === 'tab_container') && (
             <div className='space-y-4'>
               <div className='grid grid-cols-2 gap-4'>
                 <div className='space-y-2'>
@@ -1116,6 +1136,85 @@ export function WidgetDialog({
                   'Widgets on this dashboard that share this column will be filtered automatically.'
                 )}
               </p>
+            </div>
+          )}
+
+          {kind === 'text_image' && (
+            <div className='space-y-4'>
+              <div className='space-y-2'>
+                <Label htmlFor='widget-text-content'>Texto / Descripción / Markdown</Label>
+                <textarea
+                  id='widget-text-content'
+                  className='flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                  value={targetLabel}
+                  onChange={(e) => setTargetLabel(e.target.value)}
+                  placeholder='Escribe notas, títulos grandes o descripción en formato texto...'
+                />
+              </div>
+              <div className='space-y-2'>
+                <Label htmlFor='widget-image-url'>URL de Imagen (Opcional)</Label>
+                <Input
+                  id='widget-image-url'
+                  value={xKey}
+                  onChange={(e) => setXKey(e.target.value)}
+                  placeholder='https://ejemplo.com/logo.png'
+                />
+              </div>
+            </div>
+          )}
+
+          {kind === 'tab_container' && (
+            <div className='space-y-3 rounded-md border border-primary/20 bg-primary/5 p-3.5'>
+              <div className='space-y-1.5'>
+                <Label htmlFor='widget-tab-list' className='font-semibold text-xs'>Nombres de Pestañas (separados por coma)</Label>
+                <Input
+                  id='widget-tab-list'
+                  value={targetLabel}
+                  onChange={(e) => setTargetLabel(e.target.value)}
+                  placeholder='Ej: Utilidad por Mes, Ventas por Año, Tabla General'
+                />
+              </div>
+              <div className='rounded-md bg-background/80 p-2.5 text-xs space-y-1 border border-border/40'>
+                <p className='font-medium text-foreground'>💡 Separar Métricas y Ejes por Pestaña:</p>
+                <p className='text-muted-foreground leading-normal'>
+                  • <strong>Varias Métricas (Eje Y):</strong> En "Columna del eje Y", puedes escribir varias métricas separadas por coma (ej. <code>Utilidad, total_remesa, Margen_bruto</code>).
+                </p>
+                <p className='text-muted-foreground leading-normal'>
+                  • <strong>Varios Ejes/Dimensiones (Eje X):</strong> En "Columna del eje X", puedes escribir varios ejes separados por coma (ej. <code>Mes, Anio, tipo_operacion</code>).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {kind === 'action_button' && (
+            <div className='space-y-2'>
+              <Label htmlFor='widget-action-type'>Tipo de Acción</Label>
+              <Select
+                value={targetLabel || 'clear_filters'}
+                onValueChange={(v) => setTargetLabel(v)}
+              >
+                <SelectTrigger id='widget-action-type' className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='clear_filters'>Reiniciar Filtros</SelectItem>
+                  <SelectItem value='export_pdf'>Imprimir / Exportar PDF</SelectItem>
+                  <SelectItem value='refresh_data'>Actualizar Datos</SelectItem>
+                  <SelectItem value='export_excel'>Exportar Excel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {kind === 'ai_insights' && (
+            <div className='space-y-2'>
+              <Label htmlFor='widget-ai-prompt'>Instrucción / Enfoque del Análisis (Opcional)</Label>
+              <Input
+                id='widget-ai-prompt'
+                value={targetLabel}
+                onChange={(e) => setTargetLabel(e.target.value)}
+                placeholder='Ej: Enforcarse en la variación de ventas del último mes'
+              />
             </div>
           )}
         </div>

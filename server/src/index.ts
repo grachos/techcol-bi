@@ -40,7 +40,7 @@ app.use(
   "/api",
   rateLimit({
     windowMs: 60_000,
-    max: 120,
+    max: 1200,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Demasiadas peticiones, intenta mas tarde" },
