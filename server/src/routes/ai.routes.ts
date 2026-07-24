@@ -659,6 +659,38 @@ function serializeTreeForPrompt(tree: TreeResult, breakdownKey: string | null): 
   return lines.join("\n");
 }
 
+/**
+ * Deduce el "grano hoja" del conector reutilizando el que el usuario YA
+ * configuró en sus tarjetas KPI / gráficas: esas widgets guardan el grano como
+ * segundo segmento de x_key ("desglose,grano"). Sin esto, las métricas de nivel
+ * hoja (ej. Utilidad %) se agregaban mal (100%) a menos que el usuario repitiera
+ * el grano a mano en el widget de IA. Se toma el grano más frecuente entre las
+ * widgets del mismo conector.
+ */
+async function deriveConnectorGrain(connectorId: number): Promise<string | null> {
+  // Solo stat/chart codifican x_key como "desglose,grano"; tree_grid y
+  // tab_container usan la coma para listas de columnas de grupo (otro
+  // significado), así que se excluyen para no confundir el grano.
+  const [rows]: any = await pool.query(
+    "SELECT x_key FROM dashboard_widgets WHERE connector_id = ? AND kind IN ('stat', 'chart') AND x_key LIKE '%,%'",
+    [connectorId]
+  );
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const grain = String(r.x_key ?? "").split(",")[1]?.trim();
+    if (grain) counts.set(grain, (counts.get(grain) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [g, n] of counts) {
+    if (n > bestN) {
+      best = g;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
 function describeFilters(activeFilters: Record<string, any>): string {
   const parts: string[] = [];
   for (const [col, f] of Object.entries(activeFilters ?? {})) {
@@ -712,8 +744,13 @@ router.post("/insights", async (req: Request, res: Response) => {
     // desglose por la dimension visible.
     const breakdown =
       typeof breakdownKey === "string" && breakdownKey.trim() ? breakdownKey.trim() : null;
+    // Grano explícito del widget, o el que el usuario ya usó en sus KPI del
+    // mismo conector (auto). Así "Utilidad %" da el mismo valor que su tarjeta
+    // sin pedirle al usuario que repita el grano.
     const grano =
-      typeof granoKey === "string" && granoKey.trim() ? granoKey.trim() : null;
+      typeof granoKey === "string" && granoKey.trim()
+        ? granoKey.trim()
+        : await deriveConnectorGrain(connector.id);
     const groupByColumns = [breakdown, grano].filter((c): c is string => !!c);
 
     const filters = activeFilters ?? {};
