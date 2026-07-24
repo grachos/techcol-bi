@@ -230,7 +230,9 @@ export function WidgetCard({
             onClearFilters={() => onFilterChange('', null)}
           />
         )}
-        {widget.kind === 'ai_insights' && <AiInsightsWidget widget={widget} />}
+        {widget.kind === 'ai_insights' && (
+          <AiInsightsWidget widget={widget} activeFilters={activeFilters} />
+        )}
       </CardContent>
     </Card>
   )

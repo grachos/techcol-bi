@@ -1,37 +1,74 @@
-import React, { useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { Widget } from '@/lib/dashboard-api'
-import { Sparkles, RefreshCw, TrendingUp, Target, CheckCircle2, Lightbulb } from 'lucide-react'
+import { aiApi } from '@/lib/ai-api'
+import { LocalStorageMetricsRepository } from '@/lib/semantic-layer'
+import type { ActiveFilters } from '@/lib/widget-filters'
+import {
+  Sparkles,
+  RefreshCw,
+  TrendingUp,
+  Target,
+  CheckCircle2,
+  Lightbulb,
+  AlertTriangle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface AiInsightsWidgetProps {
   widget: Widget
+  activeFilters: ActiveFilters
 }
 
-export function AiInsightsWidget({ widget }: AiInsightsWidgetProps) {
-  const [loading, setLoading] = useState(false)
-  const [insights, setInsights] = useState<string[]>([])
-
+export function AiInsightsWidget({ widget, activeFilters }: AiInsightsWidgetProps) {
   const promptText = widget.targetLabel?.trim() || ''
+  const connectorId = widget.connectorId
+  // xKey es la dimension opcional de desglose (ej. "tipo_vehiculo"): permite que
+  // la IA explique QUE grupo causa una anomalia, no solo el total.
+  const breakdownKey = widget.xKey?.trim() || null
 
-  const generateInsights = () => {
-    setLoading(true)
-    setTimeout(() => {
-      // Generar puntos de insight ejecutivos basados en el enfoque del usuario
-      const customInsights = [
-        promptText
-          ? `Análisis focalizado en: "${promptText}". El rendimiento global de los conectores vinculados refleja métricas estables.`
-          : 'El rendimiento general del dashboard muestra una tendencia sostenida en los periodos auditados.',
-        'La utilidad y margen de operacion muestran un comportamiento positivo sin desviaciones criticas.',
-        'Se recomienda monitorear las transacciones de alto volumen para mantener la eficiencia del margen operativo.',
-      ]
-      setInsights(customInsights)
-      setLoading(false)
-    }, 600)
-  }
+  const calculatedMeasures = useMemo(
+    () =>
+      connectorId
+        ? new LocalStorageMetricsRepository(
+            `semantic-connector-${connectorId}-metrics`
+          ).load()
+        : [],
+    [connectorId]
+  )
 
-  useEffect(() => {
-    generateInsights()
-  }, [widget.id, widget.targetLabel])
+  // El analisis depende de los filtros ACTIVOS del dashboard: al cambiarlos, la
+  // queryKey cambia y la IA re-analiza con los nuevos numeros.
+  const query = useQuery({
+    queryKey: [
+      'ai-insights',
+      connectorId,
+      activeFilters,
+      breakdownKey,
+      promptText,
+    ],
+    queryFn: () =>
+      aiApi.insights({
+        connectorId: connectorId as number,
+        activeFilters,
+        calculatedMeasures,
+        breakdownKey,
+        focus: promptText,
+      }),
+    enabled: connectorId != null,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  })
+
+  const insights = query.data?.insights ?? []
+  const loading = query.isFetching
+  const error = query.error
+    ? query.error instanceof Error
+      ? query.error.message
+      : String(query.error)
+    : null
 
   return (
     <div className="flex h-full w-full flex-col justify-between p-4 bg-gradient-to-br from-primary/5 via-background to-muted/30 rounded-lg border border-border/40">
@@ -44,8 +81,8 @@ export function AiInsightsWidget({ widget }: AiInsightsWidgetProps) {
           variant="ghost"
           size="icon"
           className="h-6 w-6 text-muted-foreground hover:text-foreground"
-          onClick={generateInsights}
-          disabled={loading}
+          onClick={() => query.refetch()}
+          disabled={loading || connectorId == null}
           title="Regenerar análisis"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -59,18 +96,35 @@ export function AiInsightsWidget({ widget }: AiInsightsWidgetProps) {
         </div>
       )}
 
-      {loading ? (
+      {connectorId == null ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4 text-center text-muted-foreground">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <span className="text-xs font-medium">
+            Asigna un conector a este widget para generar el análisis.
+          </span>
+        </div>
+      ) : loading ? (
         <div className="flex flex-1 flex-col items-center justify-center space-y-2 py-4 text-muted-foreground">
           <Sparkles className="h-5 w-5 animate-spin text-primary" />
-          <span className="text-xs font-medium">Generando insights ejecutivos...</span>
+          <span className="text-xs font-medium">Analizando los datos del dashboard...</span>
+        </div>
+      ) : error ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-4 text-center text-muted-foreground">
+          <AlertTriangle className="h-5 w-5 text-destructive" />
+          <span className="text-xs font-medium">No se pudo generar el análisis: {error}</span>
         </div>
       ) : (
         <div className="flex-1 overflow-auto space-y-2 text-xs leading-relaxed text-slate-700 dark:text-slate-200 pr-1">
           {insights.map((line, idx) => (
-            <div key={idx} className="flex items-start space-x-2 rounded-md bg-card/60 p-2 border border-border/30 shadow-2xs">
+            <div
+              key={idx}
+              className="flex items-start space-x-2 rounded-md bg-card/60 p-2 border border-border/30 shadow-2xs"
+            >
               {idx === 0 ? (
                 <Target className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
-              ) : idx === 1 ? (
+              ) : /negativ|caída|caida|riesgo|pérdida|perdida|anomal/i.test(line) ? (
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+              ) : idx % 2 === 1 ? (
                 <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
               ) : (
                 <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
@@ -83,9 +137,11 @@ export function AiInsightsWidget({ widget }: AiInsightsWidgetProps) {
 
       <div className="mt-2.5 border-t border-border/30 pt-2 text-[10px] text-muted-foreground flex items-center justify-between shrink-0">
         <span>Generado por Copiloto BI</span>
-        <span className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
-          <CheckCircle2 className="h-3 w-3 mr-1" /> Actualizado
-        </span>
+        {!loading && !error && insights.length > 0 && (
+          <span className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 className="h-3 w-3 mr-1" /> Actualizado
+          </span>
+        )}
       </div>
     </div>
   )

@@ -570,7 +570,12 @@ export function WidgetDialog({
     // text_image guarda la URL de la imagen en xKey (ver TextImageWidget); sin
     // esto se enviaba xKey: undefined y la URL nunca se persistia.
     const wantsXKey =
-      hasXY || hasColumnLists || kind === 'calendar' || kind === 'stat' || kind === 'text_image'
+      hasXY ||
+      hasColumnLists ||
+      kind === 'calendar' ||
+      kind === 'stat' ||
+      kind === 'text_image' ||
+      kind === 'ai_insights'
     const wantsYKey = hasXY || hasColumnLists || kind === 'stat'
     // stat/chart codifican el grano hoja como segundo segmento de xKey
     // ("desglose,grano"). tab_container ya no usa xKey: cada pestana lleva su
@@ -1345,14 +1350,37 @@ export function WidgetDialog({
           )}
 
           {kind === 'ai_insights' && (
-            <div className='space-y-2'>
-              <Label htmlFor='widget-ai-prompt'>Instrucción / Enfoque del Análisis (Opcional)</Label>
-              <Input
-                id='widget-ai-prompt'
-                value={targetLabel}
-                onChange={(e) => setTargetLabel(e.target.value)}
-                placeholder='Ej: Enforcarse en la variación de ventas del último mes'
-              />
+            <div className='space-y-4'>
+              <div className='space-y-2'>
+                <Label htmlFor='widget-ai-prompt'>Instrucción / Enfoque del Análisis (Opcional)</Label>
+                <Input
+                  id='widget-ai-prompt'
+                  value={targetLabel}
+                  onChange={(e) => setTargetLabel(e.target.value)}
+                  placeholder='Ej: Enfocarse en la variación de ventas del último mes'
+                />
+              </div>
+              <div className='space-y-2'>
+                <Label htmlFor='widget-ai-breakdown'>
+                  Desglosar análisis por{' '}
+                  <span className='text-muted-foreground'>(opcional)</span>
+                </Label>
+                <ColumnField
+                  id='widget-ai-breakdown'
+                  value={xKey}
+                  onChange={setXKey}
+                  columns={groupableColumnOptions}
+                  columnsLoading={columnsLoading}
+                  allowAuto
+                  autoLabel='Solo totales'
+                  placeholder='Ej: tipo_vehiculo'
+                />
+                <p className='text-muted-foreground text-xs'>
+                  La IA analiza las métricas calculadas del conector bajo los filtros
+                  activos del dashboard. Si eliges una dimensión, además explica qué
+                  grupo causa cada hallazgo (ej. qué vehículo tiene utilidad negativa).
+                </p>
+              </div>
             </div>
           )}
         </div>

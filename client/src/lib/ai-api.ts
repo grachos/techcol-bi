@@ -46,7 +46,24 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface InsightsResult {
+  insights: string[]
+}
+
 export const aiApi = {
+  insights: (body: {
+    connectorId: number
+    activeFilters: unknown
+    calculatedMeasures?: unknown
+    breakdownKey?: string | null
+    focus?: string
+  }): Promise<InsightsResult> =>
+    apiFetch('/api/ai/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => handle(r)),
+
   suggestWidget: (
     prompt: string,
     calculatedMeasures?: Array<{ name: string; label: string; expression?: string; connectorId?: number; connectorName?: string }>,

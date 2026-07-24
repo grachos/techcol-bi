@@ -8,6 +8,8 @@ import { ConnectorType } from "../connectors/BaseConnector";
 import { MySQLConnector } from "../connectors/MySQL";
 import { PostgreSQLConnector } from "../connectors/PostgreSQL";
 import { askGroqJson } from "../services/groq";
+import { runAggregateCached } from "../services/cached-aggregate";
+import type { TreeResult, TreeNodeDTO } from "../services/aggregation-service";
 
 const router = Router();
 
@@ -617,6 +619,158 @@ Responde SOLO con un objeto JSON:
     res.json({ query: query_fixed, explanation });
   } catch (error: any) {
     serverError(res, "ai", error);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Resumen de IA Copiloto: analiza los datos REALES del conector bajo los
+// filtros activos del dashboard (no texto generico). Reusa el mismo motor de
+// agregacion en arbol que el resto de widgets, asi los numeros que ve la IA
+// son los mismos que ve el usuario en pantalla.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface InsightsConnectorRow {
+  id: number;
+  type: ConnectorType;
+  config: string | EncryptedPayload;
+  date_column: string | null;
+  calculated_measures: unknown;
+}
+
+/** Serializa el arbol agregado a un texto compacto para el prompt (totales + desglose). */
+function serializeTreeForPrompt(tree: TreeResult, breakdownKey: string | null): string {
+  const cols = tree.columnsMeta;
+  const fmt = (node: TreeNodeDTO) =>
+    cols
+      .map((c) => `${c.header}=${node.formatted[c.id] ?? node.metrics[c.id] ?? "s/d"}`)
+      .join(", ");
+
+  const lines: string[] = [];
+  lines.push(`Filas que cumplen el filtro: ${tree.totalRowCount}`);
+  lines.push(`TOTALES: ${fmt(tree.root) || "(sin metricas)"}`);
+
+  if (breakdownKey && tree.root.children.length > 0) {
+    lines.push(`\nDesglose por "${breakdownKey}" (max 40 grupos):`);
+    for (const child of tree.root.children.slice(0, 40)) {
+      const label = String(child.dimensionValues[breakdownKey] ?? "s/d");
+      lines.push(`- ${label}: ${fmt(child)}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+function describeFilters(activeFilters: Record<string, any>): string {
+  const parts: string[] = [];
+  for (const [col, f] of Object.entries(activeFilters ?? {})) {
+    if (!f || typeof f !== "object") continue;
+    if (f.type === "date_range") {
+      parts.push(`${col}: ${f.from ?? "inicio"} a ${f.to ?? "hoy"}`);
+    } else if (f.type === "select" && Array.isArray(f.values)) {
+      parts.push(`${col}: ${f.values.join(", ")}`);
+    }
+  }
+  return parts.length > 0 ? parts.join(" | ") : "(sin filtros aplicados)";
+}
+
+router.post("/insights", async (req: Request, res: Response) => {
+  const { connectorId, activeFilters, calculatedMeasures, breakdownKey, focus } =
+    req.body ?? {};
+  if (!connectorId) {
+    return res.status(400).json({ error: "Campo requerido: connectorId" });
+  }
+
+  try {
+    const [rows]: any = await pool.query(
+      "SELECT id, type, config, date_column, calculated_measures FROM connectors WHERE id = ?",
+      [connectorId]
+    );
+    const connector: InsightsConnectorRow | undefined = rows[0];
+    if (!connector) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
+
+    // Medidas calculadas: las que manda el cliente (localStorage) o, si no, las
+    // guardadas en la BD del conector.
+    let measures = Array.isArray(calculatedMeasures) ? calculatedMeasures : [];
+    if (measures.length === 0 && connector.calculated_measures) {
+      const raw = connector.calculated_measures;
+      measures = typeof raw === "string" ? JSON.parse(raw) : raw;
+    }
+
+    // Se analizan las medidas calculadas del conector (ej. Utilidad, Margen) mas
+    // el conteo de registros; opcionalmente desglosadas por una dimension.
+    const valueColumns = [
+      ...measures.map((m: any) => m?.name).filter((n: any) => typeof n === "string"),
+      "registros",
+    ];
+    const groupByColumns =
+      typeof breakdownKey === "string" && breakdownKey.trim()
+        ? [breakdownKey.trim()]
+        : [];
+
+    const filters = activeFilters ?? {};
+    const tree = (await runAggregateCached(
+      { id: connector.id, type: connector.type, config: connector.config },
+      {},
+      filters,
+      "tree",
+      { groupByColumns, valueColumns },
+      measures
+    )) as TreeResult;
+
+    if (tree.totalRowCount === 0) {
+      return res.json({
+        insights: [
+          "No hay datos que cumplan los filtros seleccionados. Ajusta el rango de fechas o los filtros para obtener un análisis.",
+        ],
+      });
+    }
+
+    const dataText = serializeTreeForPrompt(tree, groupByColumns[0] ?? null);
+    const focusText =
+      typeof focus === "string" && focus.trim()
+        ? `Enfoque solicitado por el usuario: "${focus.trim()}".`
+        : "";
+
+    const systemPrompt = `Eres un analista senior de Business Intelligence. Se te dan datos YA AGREGADOS de un dashboard bajo los filtros que el usuario aplicó. Tu trabajo es dar hallazgos ejecutivos concretos y accionables en español, basados EXCLUSIVAMENTE en los números provistos (no inventes cifras ni tendencias que no estén en los datos).
+
+Filtros activos: ${describeFilters(filters)}
+${focusText}
+
+Datos agregados:
+${dataText}
+
+Instrucciones:
+- Escribe entre 3 y 5 hallazgos, cada uno una frase concisa.
+- Cita los números reales (con su unidad/formato tal como aparecen).
+- Resalta explícitamente cualquier valor NEGATIVO, caída o anomalía (ej. utilidad negativa) y, si hay desglose, qué grupo la causa.
+- Si todo es positivo, dilo, pero no exageres.
+- Responde SOLO un objeto JSON: { "insights": ["...", "...", "..."] }`;
+
+    const result: any = await askGroqJson(
+      systemPrompt,
+      focus && typeof focus === "string" && focus.trim()
+        ? focus.trim()
+        : "Analiza los datos agregados y entrega los hallazgos clave."
+    );
+
+    const insights = Array.isArray(result?.insights)
+      ? result.insights.filter((s: any) => typeof s === "string" && s.trim()).slice(0, 6)
+      : [];
+
+    res.json({
+      insights:
+        insights.length > 0
+          ? insights
+          : ["La IA no devolvió hallazgos para estos datos. Intenta ajustar el enfoque o los filtros."],
+    });
+  } catch (error: any) {
+    console.error("[ai/insights error]", error);
+    if (!res.headersSent) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : "Error al generar el análisis",
+      });
+    }
   }
 });
 
