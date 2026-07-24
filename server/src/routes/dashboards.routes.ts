@@ -255,7 +255,7 @@ router.post(
         return res.status(400).json({ error: "Campo requerido: column" });
       }
       const [rows]: any = await pool.query(
-        `SELECT c.id, c.type, c.config, c.date_column
+        `SELECT c.id, c.type, c.config, c.date_column, c.calculated_measures
          FROM dashboard_shares s
          JOIN dashboard_widgets w
            ON w.dashboard_id = s.dashboard_id AND w.connector_id = ?
@@ -269,6 +269,16 @@ router.post(
         return res.status(404).json({ error: "Conector no encontrado" });
       }
 
+      // Endpoint PUBLICO: las medidas calculadas salen de la BD del conector,
+      // NUNCA del body (evaluar formulas arbitrarias del cliente en el servidor
+      // seria un vector de DoS). getDistinctValues no tiene fallback a BD como
+      // runAggregateCached, asi que se cargan aqui explicitamente.
+      const dbMeasures = connector.calculated_measures
+        ? typeof connector.calculated_measures === "string"
+          ? JSON.parse(connector.calculated_measures)
+          : connector.calculated_measures
+        : [];
+
       const result = await getDistinctValues(
         {
           id: connector.id,
@@ -278,7 +288,7 @@ router.post(
         },
         column,
         parseRuntimeParams(req.body?.params),
-        req.body?.calculatedMeasures ?? []
+        dbMeasures
       );
       res.json(result);
     } catch (error: any) {
@@ -310,16 +320,20 @@ router.post(
 
       const params = parseRuntimeParams(req.body?.params);
       const filters = req.body?.activeFilters ?? {};
-      const calc = req.body?.calculatedMeasures ?? [];
       const mode: "stat" | "tree" = req.body?.mode === "tree" ? "tree" : "stat";
       const query = req.body?.query ?? {};
+      // Endpoint PUBLICO: las medidas calculadas NO se toman del body (serian
+      // formulas arbitrarias evaluadas en el servidor por cualquiera con el
+      // link = vector de DoS). Se pasa [] a proposito para que
+      // runAggregateCached use exclusivamente las guardadas en la BD del
+      // conector.
       const result = await runAggregateCached(
         { id: connector.id, type: connector.type as ConnectorType, config: connector.config },
         params,
         filters,
         mode,
         query,
-        calc
+        []
       );
       res.json(result);
     } catch (error: any) {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -44,7 +44,6 @@ import { CalendarWidget } from './calendar-widget'
 import { ClockWidget } from './clock-widget'
 import { ComboWidget } from './combo-widget'
 import { DateFilterWidget } from './date-filter-widget'
-import { MapWidget } from './map-widget'
 import { ProgressWidget } from './progress-widget'
 import { SelectFilterWidget } from './select-filter-widget'
 import { StatWidget } from './stat-widget'
@@ -54,6 +53,13 @@ import { TabContainerWidget } from './tab-container-widget'
 import { ActionButtonWidget } from './action-button-widget'
 import { AiInsightsWidget } from './ai-insights-widget'
 import { WidgetEmpty, WidgetError, WidgetLoading } from './widget-state'
+
+// El mapa arrastra world-atlas + topojson-client + d3-geo (cientos de KB) que
+// solo hacen falta si el dashboard tiene un widget de mapa. Se carga bajo
+// demanda para que el resto de dashboards no pague ese peso en el bundle inicial.
+const MapWidget = lazy(() =>
+  import('./map-widget').then((m) => ({ default: m.MapWidget }))
+)
 
 const MAX_TABLE_ROWS = 100
 // Recharts pinta un nodo SVG por punto (una <rect>/<circle> por barra,
@@ -193,7 +199,9 @@ export function WidgetCard({
           <ProgressWidget widget={widget} activeFilters={activeFilters} />
         )}
         {widget.kind === 'map' && (
-          <MapWidget widget={widget} activeFilters={activeFilters} />
+          <Suspense fallback={<WidgetLoading />}>
+            <MapWidget widget={widget} activeFilters={activeFilters} />
+          </Suspense>
         )}
         {widget.kind === 'tree_grid' && (
           <TreeGridWidget widget={widget} activeFilters={activeFilters} />

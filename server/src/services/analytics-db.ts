@@ -210,3 +210,84 @@ export async function queryFactRows(
     values.length > 0 ? await conn.runAndReadAll(sql, values) : await conn.runAndReadAll(sql);
   return res.getRowObjectsJson() as Record<string, unknown>[];
 }
+
+export type RawAggregation = "sum" | "avg" | "count" | "min" | "max";
+
+export interface RawStatSqlResult {
+  value: number;
+  rowCount: number;
+  totalRowCount: number;
+  spark: number[];
+}
+
+/** Numero de puntos del sparkline decorativo (espejo de SPARK_MAX en aggregation-service). */
+const SPARK_MAX = 200;
+
+/**
+ * Agrega una medida CRUDA (columna real, sin formula ni desglose) directamente
+ * en DuckDB: SUM/AVG/MIN/MAX/COUNT nativos en vez de materializar N objetos de
+ * fila en JS y recorrerlos. Devuelve solo el escalar + los conteos + un
+ * sparkline submuestreado (≤200 puntos, decorativo).
+ *
+ * `yKey` debe venir YA validado contra el esquema real (getFactColumns) por
+ * quien llama -- se interpola directo. `whereSql`/`values` salen de
+ * buildWhereClause (columnas validadas, valores parametrizados).
+ *
+ * TRY_CAST(... AS DOUBLE) reproduce el filtrado de NaN del camino JS
+ * (aggregateRaw): los no numericos quedan NULL y SUM/AVG/MIN/MAX los ignoran,
+ * igual que .filter((n) => !isNaN(n)) antes de reducir.
+ */
+export async function queryRawStat(
+  connectorId: number,
+  yKey: string | null,
+  aggregation: RawAggregation,
+  whereSql: string,
+  values: string[]
+): Promise<RawStatSqlResult> {
+  const conn = await getAnalyticsDb();
+  const table = factTableName(connectorId);
+  const run = (sql: string, params?: string[]) =>
+    params && params.length > 0 ? conn.runAndReadAll(sql, params) : conn.runAndReadAll(sql);
+
+  // COUNT no necesita columna; el resto castea a numero para ignorar no numericos.
+  const cast = yKey ? `TRY_CAST("${yKey}" AS DOUBLE)` : null;
+  const aggExpr =
+    aggregation === "count" || !cast
+      ? "COUNT(*)"
+      : `${aggregation.toUpperCase()}(${cast})`;
+
+  const aggRes = await run(
+    `SELECT ${aggExpr} AS v, COUNT(*) AS n FROM "${table}" ${whereSql}`,
+    values
+  );
+  const aggRow = aggRes.getRowObjectsJson()[0] as { v: unknown; n: unknown } | undefined;
+  const value = aggRow?.v == null ? 0 : Number(aggRow.v);
+  const rowCount = Number(aggRow?.n ?? 0);
+
+  const totalRes = await run(`SELECT COUNT(*) AS n FROM "${table}"`);
+  const totalRowCount = Number(
+    (totalRes.getRowObjectsJson()[0] as { n: unknown } | undefined)?.n ?? 0
+  );
+
+  // Sparkline: submuestreo ordenado en SQL (≤200 filas de vuelta, no el dataset).
+  let spark: number[] = [];
+  if (cast) {
+    const sparkRes = await run(
+      `WITH src AS (
+         SELECT ${cast} AS v FROM "${table}" ${whereSql}
+       ),
+       nn AS (
+         SELECT v, row_number() OVER () AS rn, count(*) OVER () AS tot
+         FROM src WHERE v IS NOT NULL
+       )
+       SELECT v FROM nn
+       WHERE tot <= ${SPARK_MAX} OR (rn - 1) % ((tot / ${SPARK_MAX}) + 1) = 0
+       ORDER BY rn
+       LIMIT ${SPARK_MAX}`,
+      values
+    );
+    spark = (sparkRes.getRowObjectsJson() as { v: unknown }[]).map((r) => Number(r.v));
+  }
+
+  return { value, rowCount, totalRowCount, spark };
+}

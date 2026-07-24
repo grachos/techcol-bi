@@ -75,6 +75,11 @@ router.get("/:id", requireAdmin, async (req: Request, res: Response) => {
 // Obtener medidas calculadas de un conector
 router.get("/:id/calculated-measures", async (req: Request, res: Response) => {
   try {
+    // Mismo guard que /data, /aggregate y /distinct: un usuario custom solo
+    // puede leer conectores que alimentan un dashboard que tiene asignado.
+    if (!(await canReadConnector(req.params.id, req.userId!, req.userRole!))) {
+      return res.status(404).json({ error: "Conector no encontrado" });
+    }
     const [rows]: any = await pool.query(
       "SELECT calculated_measures FROM connectors WHERE id = ?",
       [req.params.id]

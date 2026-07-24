@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { biApi, type StatAggQuery, type StatAggResult } from '@/lib/bi-api'
 import { type Widget } from '@/lib/dashboard-api'
@@ -26,11 +27,17 @@ export function useStatAggregation(
   const params =
     widget.connectorType === 'rest_api' ? filtersToParams(activeFilters) : {}
 
-  const calculatedMeasures = connectorId
-    ? new LocalStorageMetricsRepository(
-        `semantic-connector-${connectorId}-metrics`
-      ).load()
-    : []
+  // Leer + parsear localStorage en cada render es desperdicio (y cambiaba la
+  // identidad del queryKey sin necesidad); solo depende del conector.
+  const calculatedMeasures = useMemo(
+    () =>
+      connectorId
+        ? new LocalStorageMetricsRepository(
+            `semantic-connector-${connectorId}-metrics`
+          ).load()
+        : [],
+    [connectorId]
+  )
 
   const body = { params, activeFilters, calculatedMeasures, query }
 
