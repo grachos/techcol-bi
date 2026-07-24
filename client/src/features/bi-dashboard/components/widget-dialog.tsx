@@ -534,9 +534,13 @@ export function WidgetDialog({
     const wantsXKey =
       hasXY || hasColumnLists || kind === 'calendar' || kind === 'stat' || kind === 'text_image'
     const wantsYKey = hasXY || hasColumnLists || kind === 'stat'
+    // stat/chart/tab_container codifican el grano hoja como segundo segmento de
+    // xKey ("desglose,grano"); sin incluir tab_container aqui, el grano que el
+    // usuario elige se perdia y las metricas de nivel hoja (ej. Utilidad %)
+    // salian mal (100% en cada fila).
     const xKeyValue = hasColumnLists
       ? groupByColumns.join(',')
-      : (kind === 'stat' || kind === 'chart')
+      : (kind === 'stat' || kind === 'chart' || kind === 'tab_container')
         ? (xKey || granoKey ? `${xKey},${granoKey}` : '')
         : xKey
     const yKeyValue = hasColumnLists ? valueColumns.join(',') : yKey
@@ -549,7 +553,7 @@ export function WidgetDialog({
           kind,
           connectorId: connectorId ? Number(connectorId) : null,
           title: finalTitle,
-          chartType: kind === 'chart' ? chartType : undefined,
+          chartType: kind === 'chart' || kind === 'tab_container' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
@@ -567,7 +571,7 @@ export function WidgetDialog({
           connectorId: connectorId ? Number(connectorId) : null,
           title: finalTitle,
           kind,
-          chartType: kind === 'chart' ? chartType : undefined,
+          chartType: kind === 'chart' || kind === 'tab_container' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,

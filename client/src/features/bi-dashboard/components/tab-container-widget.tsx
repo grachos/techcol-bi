@@ -59,37 +59,38 @@ export function TabContainerWidget({ widget, activeFilters }: TabContainerWidget
     const rawYKeys = widget.yKey
       ? widget.yKey.split(',').map((s) => s.trim()).filter(Boolean)
       : []
-    const rawXKeys = widget.xKey
-      ? widget.xKey.split(',').map((s) => s.trim()).filter(Boolean)
-      : []
     const rawTypes = widget.chartType
       ? (widget.chartType.split(',').map((s) => s.trim()) as ChartType[])
       : []
 
+    // xKey codifica "desglose,grano" (igual que chart/stat), NO una lista de
+    // dimensiones por pestana: es un unico eje compartido por todas las
+    // pestanas. El grano (segundo segmento) es imprescindible para que las
+    // metricas de nivel hoja (ej. Utilidad %) no salgan 100% en cada fila; se
+    // conserva entero y currentTab lo vuelve a separar en desglose + grano.
+    const xSpec = (widget.xKey ?? '').trim()
     const defaultY = rawYKeys[0] || fallbackYKey || ''
-    const defaultX = rawXKeys[0] || ''
 
-    // Modo por defecto si no se especificaron multiples pestanas: 3 vistas (Barras, Lineas, Tabla)
-    if (rawYKeys.length <= 1 && rawXKeys.length <= 1 && rawNames.length <= 1) {
+    // Modo por defecto: una metrica -> 3 vistas (Barras, Lineas, Tabla).
+    if (rawYKeys.length <= 1 && rawNames.length <= 1 && rawTypes.length <= 1) {
       const baseName = rawNames[0] ? `${rawNames[0]} - ` : ''
       return [
-        { id: 'tab-0', name: `${baseName}Barras`, yKey: defaultY, xKey: defaultX, type: 'bar' },
-        { id: 'tab-1', name: `${baseName}Líneas`, yKey: defaultY, xKey: defaultX, type: 'line' },
-        { id: 'tab-2', name: `${baseName}Tabla`, yKey: defaultY, xKey: defaultX, type: 'table' },
+        { id: 'tab-0', name: `${baseName}Barras`, yKey: defaultY, xKey: xSpec, type: 'bar' },
+        { id: 'tab-1', name: `${baseName}Líneas`, yKey: defaultY, xKey: xSpec, type: 'line' },
+        { id: 'tab-2', name: `${baseName}Tabla`, yKey: defaultY, xKey: xSpec, type: 'table' },
       ]
     }
 
-    // Modo avanzado: pestana personalizada con su propia metrica, dimension y tipo
-    const count = Math.max(rawNames.length, rawYKeys.length, rawXKeys.length)
+    // Modo avanzado: una pestana por nombre/metrica/tipo, con el mismo eje.
+    const count = Math.max(rawNames.length, rawYKeys.length, rawTypes.length)
     const result: TabDef[] = []
     for (let i = 0; i < count; i++) {
       const name = rawNames[i] || `Pestaña ${i + 1}`
       const yKey = rawYKeys[i] || defaultY
-      const xKey = rawXKeys[i] || defaultX
       const rawType = rawTypes[i] || (i === 0 ? 'bar' : i === 1 ? 'line' : 'table')
       const type: 'bar' | 'line' | 'table' =
         rawType === 'line' ? 'line' : rawType === 'table' ? 'table' : 'bar'
-      result.push({ id: `tab-${i}`, name, yKey, xKey, type })
+      result.push({ id: `tab-${i}`, name, yKey, xKey: xSpec, type })
     }
     return result
   }, [widget.targetLabel, widget.yKey, widget.xKey, widget.chartType, fallbackYKey])
