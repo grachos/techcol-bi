@@ -32,17 +32,54 @@ import type { Measure } from "../../../client/src/lib/semantic-layer/types";
 import { pool } from "../db";
 
 /**
- * Camino rapido para un stat CRUDO (columna real, sin desglose ni formula):
- * agrega en DuckDB (SUM/AVG/COUNT/MIN/MAX nativo) en vez de bajar todas las
- * filas a JS y recorrerlas. Devuelve null -- y se cae al pipeline de siempre --
- * en cuanto algo lo hace inseguro:
- *  - el conector no esta sincronizado (no hay tabla DuckDB),
+ * Decide si un stat es elegible para el atajo de DuckDB (agregar en SQL en vez
+ * de bajar todas las filas a JS). PURA y exportada para poder testear la
+ * decision -- que es lo delicado -- sin tocar la base de datos. Devuelve "sql"
+ * solo cuando el atajo es demostrablemente equivalente al camino JS; en
+ * cualquier duda, "fallback" (el resultado sigue siendo correcto, solo mas
+ * lento). Las condiciones que fuerzan fallback:
  *  - hay desglose (breakdown/grano): eso arma un arbol, no un escalar,
- *  - la medida es calculada (leaf/derived) o no es una columna real,
+ *  - la medida no es una columna real (es una medida calculada leaf/derived,
+ *    que va por el arbol jerarquico),
+ *  - la medida es una medida calculada del usuario aunque comparta nombre,
+ *  - sin yKey y la agregacion no es COUNT (nada que sumar),
  *  - algun filtro activo apunta a una columna que NO existe en la tabla (seria
  *    una dimension calculada tipo "mes" que solo el camino JS sabe aplicar;
  *    empujar a SQL la ignoraria y daria un numero equivocado).
- * Cuando devuelve null el resultado es identico al de antes: es puro atajo.
+ */
+export type RawStatDecision = "sql" | "fallback";
+
+export function decideRawStat(
+  query: StatQuery,
+  factColumns: Set<string>,
+  calculatedMeasureNames: Set<string>,
+  filterKeys: string[]
+): RawStatDecision {
+  if (query.breakdownKey || query.granoKey) return "fallback";
+
+  const aggregation: RawAggregation = query.aggregation ?? "sum";
+  if (!query.yKey) {
+    // Sin medida solo tiene sentido contar filas; cualquier otra agregacion
+    // no tiene nada que agregar -> que lo resuelva el camino JS.
+    return aggregation === "count" ? "sql" : "fallback";
+  }
+
+  // La medida tiene que ser una columna real y NO una medida calculada del
+  // usuario (esas van por el arbol jerarquico, no por un agregado plano).
+  if (!factColumns.has(query.yKey)) return "fallback";
+  if (calculatedMeasureNames.has(query.yKey)) return "fallback";
+
+  // Todos los filtros activos deben ser columnas reales (ver doc de arriba).
+  for (const key of filterKeys) {
+    if (!factColumns.has(key)) return "fallback";
+  }
+
+  return "sql";
+}
+
+/**
+ * Camino rapido para un stat CRUDO: si decideRawStat lo aprueba, agrega en
+ * DuckDB y devuelve el StatResult; si no, null y se cae al pipeline de siempre.
  */
 async function tryFastRawStat(
   connector: ConnectorConfigRow,
@@ -50,37 +87,17 @@ async function tryFastRawStat(
   query: StatQuery,
   calculatedMeasures: Measure[]
 ): Promise<StatResult | null> {
-  if (query.breakdownKey || query.granoKey) return null;
+  const columns = await getFactColumns(connector.id);
+  const calcNames = new Set(calculatedMeasures.map((m) => m.name));
+  const decision = decideRawStat(
+    query,
+    columns,
+    calcNames,
+    Object.keys(activeFilters ?? {})
+  );
+  if (decision !== "sql") return null;
 
   const aggregation: RawAggregation = query.aggregation ?? "sum";
-  // Igual que el camino JS: sin yKey solo tiene sentido COUNT.
-  if (!query.yKey && aggregation !== "count") {
-    return {
-      value: null,
-      formatted: null,
-      points: null,
-      rowCount: 0,
-      totalRowCount: 0,
-      spark: [],
-      format: null,
-      isCalculated: false,
-    };
-  }
-
-  const columns = await getFactColumns(connector.id);
-
-  // La medida tiene que ser una columna real y NO una medida calculada del
-  // usuario (esas van por el arbol jerarquico, no por un agregado plano).
-  if (query.yKey) {
-    if (!columns.has(query.yKey)) return null;
-    if (calculatedMeasures.some((m) => m.name === query.yKey)) return null;
-  }
-
-  // Todos los filtros activos deben ser columnas reales (ver doc de arriba).
-  for (const key of Object.keys(activeFilters ?? {})) {
-    if (!columns.has(key)) return null;
-  }
-
   const { sql, values } = buildWhereClause(activeFilters, columns);
   const raw = await queryRawStat(
     connector.id,
