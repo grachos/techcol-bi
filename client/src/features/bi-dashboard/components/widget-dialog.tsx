@@ -364,7 +364,11 @@ export function WidgetDialog({
       setChartType(patch.chartType ?? widget.chartType)
       setColor(patch.color ?? widget.color)
       const loadedXKeyRaw = (patch.xKey ?? widget.xKey) ?? ''
-      if (widget.kind === 'stat' || widget.kind === 'chart') {
+      if (
+        widget.kind === 'stat' ||
+        widget.kind === 'chart' ||
+        widget.kind === 'ai_insights'
+      ) {
         const [statXKey, statGranoKey] = loadedXKeyRaw.split(',')
         setXKey(statXKey || '')
         setGranoKey(statGranoKey || '')
@@ -582,7 +586,7 @@ export function WidgetDialog({
     // propio desglose+grano en tabsConfig.
     const xKeyValue = hasColumnLists
       ? groupByColumns.join(',')
-      : (kind === 'stat' || kind === 'chart')
+      : (kind === 'stat' || kind === 'chart' || kind === 'ai_insights')
         ? (xKey || granoKey ? `${xKey},${granoKey}` : '')
         : xKey
     const tabsConfigValue =
@@ -1360,27 +1364,47 @@ export function WidgetDialog({
                   placeholder='Ej: Enfocarse en la variación de ventas del último mes'
                 />
               </div>
-              <div className='space-y-2'>
-                <Label htmlFor='widget-ai-breakdown'>
-                  Desglosar análisis por{' '}
-                  <span className='text-muted-foreground'>(opcional)</span>
-                </Label>
-                <ColumnField
-                  id='widget-ai-breakdown'
-                  value={xKey}
-                  onChange={setXKey}
-                  columns={groupableColumnOptions}
-                  columnsLoading={columnsLoading}
-                  allowAuto
-                  autoLabel='Solo totales'
-                  placeholder='Ej: tipo_vehiculo'
-                />
-                <p className='text-muted-foreground text-xs'>
-                  La IA analiza las métricas calculadas del conector bajo los filtros
-                  activos del dashboard. Si eliges una dimensión, además explica qué
-                  grupo causa cada hallazgo (ej. qué vehículo tiene utilidad negativa).
-                </p>
+              <div className='grid grid-cols-2 gap-4'>
+                <div className='space-y-2'>
+                  <Label htmlFor='widget-ai-breakdown'>
+                    Desglosar análisis por{' '}
+                    <span className='text-muted-foreground'>(opcional)</span>
+                  </Label>
+                  <ColumnField
+                    id='widget-ai-breakdown'
+                    value={xKey}
+                    onChange={setXKey}
+                    columns={groupableColumnOptions}
+                    columnsLoading={columnsLoading}
+                    allowAuto
+                    autoLabel='Solo totales'
+                    placeholder='Ej: tipo_vehiculo'
+                  />
+                </div>
+                <div className='space-y-2'>
+                  <Label htmlFor='widget-ai-grano'>
+                    Grano hoja{' '}
+                    <span className='text-muted-foreground'>(opcional)</span>
+                  </Label>
+                  <ColumnField
+                    id='widget-ai-grano'
+                    value={granoKey}
+                    onChange={setGranoKey}
+                    columns={groupableColumnOptions}
+                    columnsLoading={columnsLoading}
+                    allowAuto
+                    autoLabel='Ninguno'
+                    placeholder='Ej: manifiesto'
+                  />
+                </div>
               </div>
+              <p className='text-muted-foreground text-xs'>
+                La IA analiza las métricas calculadas del conector bajo los filtros
+                activos del dashboard. Elige una dimensión de desglose para que explique
+                qué grupo causa cada hallazgo. Para métricas de porcentaje a nivel hoja
+                (ej. Utilidad %), fija el <strong>mismo grano hoja</strong> que usaste en
+                su tarjeta KPI; sin él, el porcentaje sale mal (100%).
+              </p>
             </div>
           )}
         </div>

@@ -673,7 +673,7 @@ function describeFilters(activeFilters: Record<string, any>): string {
 }
 
 router.post("/insights", async (req: Request, res: Response) => {
-  const { connectorId, activeFilters, calculatedMeasures, breakdownKey, focus } =
+  const { connectorId, activeFilters, calculatedMeasures, breakdownKey, granoKey, focus } =
     req.body ?? {};
   if (!connectorId) {
     return res.status(400).json({ error: "Campo requerido: connectorId" });
@@ -703,10 +703,18 @@ router.post("/insights", async (req: Request, res: Response) => {
       ...measures.map((m: any) => m?.name).filter((n: any) => typeof n === "string"),
       "registros",
     ];
-    const groupByColumns =
-      typeof breakdownKey === "string" && breakdownKey.trim()
-        ? [breakdownKey.trim()]
-        : [];
+
+    // breakdown = dimension VISIBLE en el desglose; grano = unidad hoja INTERNA
+    // que las metricas de nivel hoja (ej. Utilidad %) necesitan para evaluarse
+    // por unidad antes de combinar. Sin el grano, esas metricas daban 100% (el
+    // mismo bug que el KPI resuelve pasando su granoKey). El grano va como nivel
+    // mas profundo del arbol pero NO se vuelca al prompt: solo el total y el
+    // desglose por la dimension visible.
+    const breakdown =
+      typeof breakdownKey === "string" && breakdownKey.trim() ? breakdownKey.trim() : null;
+    const grano =
+      typeof granoKey === "string" && granoKey.trim() ? granoKey.trim() : null;
+    const groupByColumns = [breakdown, grano].filter((c): c is string => !!c);
 
     const filters = activeFilters ?? {};
     const tree = (await runAggregateCached(
@@ -726,7 +734,7 @@ router.post("/insights", async (req: Request, res: Response) => {
       });
     }
 
-    const dataText = serializeTreeForPrompt(tree, groupByColumns[0] ?? null);
+    const dataText = serializeTreeForPrompt(tree, breakdown);
     const focusText =
       typeof focus === "string" && focus.trim()
         ? `Enfoque solicitado por el usuario: "${focus.trim()}".`

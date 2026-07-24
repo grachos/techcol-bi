@@ -23,9 +23,15 @@ interface AiInsightsWidgetProps {
 export function AiInsightsWidget({ widget, activeFilters }: AiInsightsWidgetProps) {
   const promptText = widget.targetLabel?.trim() || ''
   const connectorId = widget.connectorId
-  // xKey es la dimension opcional de desglose (ej. "tipo_vehiculo"): permite que
-  // la IA explique QUE grupo causa una anomalia, no solo el total.
-  const breakdownKey = widget.xKey?.trim() || null
+  // xKey codifica "desglose,grano" (igual que stat/chart): el desglose es la
+  // dimension opcional que la IA usa para atribuir un hallazgo a un grupo; el
+  // grano es la unidad hoja que las metricas de nivel hoja (ej. Utilidad %)
+  // necesitan para calcularse bien (sin el, salen 100%).
+  const [breakdownKey, granoKey] = useMemo(() => {
+    if (!widget.xKey) return [null, null] as const
+    const [b, g] = widget.xKey.split(',')
+    return [b?.trim() || null, g?.trim() || null] as const
+  }, [widget.xKey])
 
   const calculatedMeasures = useMemo(
     () =>
@@ -45,6 +51,7 @@ export function AiInsightsWidget({ widget, activeFilters }: AiInsightsWidgetProp
       connectorId,
       activeFilters,
       breakdownKey,
+      granoKey,
       promptText,
     ],
     queryFn: () =>
@@ -53,6 +60,7 @@ export function AiInsightsWidget({ widget, activeFilters }: AiInsightsWidgetProp
         activeFilters,
         calculatedMeasures,
         breakdownKey,
+        granoKey,
         focus: promptText,
       }),
     enabled: connectorId != null,

@@ -56,6 +56,7 @@ export const aiApi = {
     activeFilters: unknown
     calculatedMeasures?: unknown
     breakdownKey?: string | null
+    granoKey?: string | null
     focus?: string
   }): Promise<InsightsResult> =>
     apiFetch('/api/ai/insights', {
