@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { biApi, type Connector } from '@/lib/bi-api'
 import { listScalarCalculatedMeasureNames, peekConnectorSemanticModel, getConnectorSemanticModel, useModelVersion } from '@/lib/semantic-layer'
 import {
@@ -14,6 +14,8 @@ import {
   WIDGET_KINDS,
   type Aggregation,
   type ChartType,
+  type TabChartType,
+  type TabConfig,
   type Widget,
   type WidgetColor,
   type WidgetKind,
@@ -115,7 +117,39 @@ const KINDS_WITH_COLOR: WidgetKind[] = [
 ]
 
 // Kinds que usan columnas X/Y (eje/categoria y valor)
-const KINDS_WITH_XY: WidgetKind[] = ['chart', 'combo', 'progress', 'map', 'tab_container']
+// tab_container ya NO usa los campos X/Y unicos: cada pestana lleva su propia
+// config en el editor por pestana (tabsConfig).
+const KINDS_WITH_XY: WidgetKind[] = ['chart', 'combo', 'progress', 'map']
+
+const EMPTY_TAB: TabConfig = { name: '', yKey: '', xKey: '', granoKey: '', type: 'bar' }
+const TAB_TYPE_OPTIONS: { value: TabChartType; label: string }[] = [
+  { value: 'bar', label: 'Barras' },
+  { value: 'line', label: 'Líneas' },
+  { value: 'table', label: 'Tabla' },
+]
+
+/**
+ * Carga las pestanas para el editor: usa tabsConfig si existe (widgets nuevos);
+ * si no, migra desde el viejo esquema de listas por coma (targetLabel/yKey/xKey)
+ * para que un widget antiguo no abra el editor vacio. xKey legado codificaba
+ * "desglose,grano".
+ */
+function loadTabsFromWidget(widget: Widget): TabConfig[] {
+  if (widget.tabsConfig && widget.tabsConfig.length > 0) {
+    return widget.tabsConfig.map((t) => ({ ...EMPTY_TAB, ...t }))
+  }
+  const names = (widget.targetLabel ?? '').split(',').map((s) => s.trim())
+  const metrics = (widget.yKey ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  const [breakdown = '', grano = ''] = (widget.xKey ?? '').split(',').map((s) => s.trim())
+  if (metrics.length === 0) return [{ ...EMPTY_TAB }]
+  return metrics.map((m, i) => ({
+    name: names[i] || m,
+    yKey: m,
+    xKey: breakdown,
+    granoKey: grano,
+    type: 'bar' as TabChartType,
+  }))
+}
 
 // tree_grid guarda listas separadas por coma en xKey (agrupar por) / yKey
 // (columnas de valor), reutilizando las mismas columnas de la BD sin agregar
@@ -137,7 +171,7 @@ function ColumnField({
   autoLabel,
   placeholder,
 }: {
-  id: string
+  id?: string
   value: string
   onChange: (v: string) => void
   columns: string[]
@@ -315,6 +349,7 @@ export function WidgetDialog({
   const [filterColumn, setFilterColumn] = useState('')
   const [groupByColumns, setGroupByColumns] = useState<string[]>([])
   const [valueColumns, setValueColumns] = useState<string[]>([])
+  const [tabs, setTabs] = useState<TabConfig[]>([])
   const [saving, setSaving] = useState(false)
   const [columns, setColumns] = useState<string[]>([])
   const [columnsLoading, setColumnsLoading] = useState(false)
@@ -346,6 +381,7 @@ export function WidgetDialog({
       const loadedYKey = (patch.yKey ?? widget.yKey) ?? ''
       setGroupByColumns(widget.kind === 'tree_grid' ? loadedXKey.split(',').filter(Boolean) : [])
       setValueColumns(widget.kind === 'tree_grid' ? loadedYKey.split(',').filter(Boolean) : [])
+      setTabs(widget.kind === 'tab_container' ? loadTabsFromWidget(widget) : [])
     } else if (aiSuggestion) {
       const suggestedKind = aiSuggestion.kind ?? 'chart'
       setKind(suggestedKind)
@@ -370,6 +406,7 @@ export function WidgetDialog({
           ? aiSuggestion.yKey.split(',').filter(Boolean)
           : []
       )
+      setTabs(suggestedKind === 'tab_container' ? [{ ...EMPTY_TAB }] : [])
     } else {
       setKind('chart')
       setTitle('')
@@ -385,6 +422,7 @@ export function WidgetDialog({
       setFilterColumn('')
       setGroupByColumns([])
       setValueColumns([])
+      setTabs([{ ...EMPTY_TAB }])
     }
   }, [open, widget, aiSuggestion, aiEditSuggestion, connectors])
 
@@ -534,15 +572,20 @@ export function WidgetDialog({
     const wantsXKey =
       hasXY || hasColumnLists || kind === 'calendar' || kind === 'stat' || kind === 'text_image'
     const wantsYKey = hasXY || hasColumnLists || kind === 'stat'
-    // stat/chart/tab_container codifican el grano hoja como segundo segmento de
-    // xKey ("desglose,grano"); sin incluir tab_container aqui, el grano que el
-    // usuario elige se perdia y las metricas de nivel hoja (ej. Utilidad %)
-    // salian mal (100% en cada fila).
+    // stat/chart codifican el grano hoja como segundo segmento de xKey
+    // ("desglose,grano"). tab_container ya no usa xKey: cada pestana lleva su
+    // propio desglose+grano en tabsConfig.
     const xKeyValue = hasColumnLists
       ? groupByColumns.join(',')
-      : (kind === 'stat' || kind === 'chart' || kind === 'tab_container')
+      : (kind === 'stat' || kind === 'chart')
         ? (xKey || granoKey ? `${xKey},${granoKey}` : '')
         : xKey
+    const tabsConfigValue =
+      kind === 'tab_container'
+        ? tabs
+            .map((tb) => ({ ...tb, name: tb.name.trim() }))
+            .filter((tb) => tb.yKey.trim() !== '')
+        : null
     const yKeyValue = hasColumnLists ? valueColumns.join(',') : yKey
     const targetValueNum = targetValue.trim() === '' ? null : Number(targetValue)
 
@@ -553,7 +596,7 @@ export function WidgetDialog({
           kind,
           connectorId: connectorId ? Number(connectorId) : null,
           title: finalTitle,
-          chartType: kind === 'chart' || kind === 'tab_container' ? chartType : undefined,
+          chartType: kind === 'chart' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
@@ -564,6 +607,7 @@ export function WidgetDialog({
           targetValue: kind === 'stat' ? targetValueNum : undefined,
           targetLabel: targetLabel.trim() || null,
           filterColumn: filterColumn.trim() || null,
+          tabsConfig: kind === 'tab_container' ? tabsConfigValue : undefined,
         })
         toast.success(t('Widget updated'))
       } else {
@@ -571,7 +615,7 @@ export function WidgetDialog({
           connectorId: connectorId ? Number(connectorId) : null,
           title: finalTitle,
           kind,
-          chartType: kind === 'chart' || kind === 'tab_container' ? chartType : undefined,
+          chartType: kind === 'chart' ? chartType : undefined,
           color: hasColor ? color : undefined,
           xKey: wantsXKey ? xKeyValue || null : undefined,
           yKey: wantsYKey ? yKeyValue || null : undefined,
@@ -582,6 +626,7 @@ export function WidgetDialog({
           targetValue: kind === 'stat' ? targetValueNum : undefined,
           targetLabel: targetLabel.trim() || null,
           filterColumn: filterColumn.trim() || null,
+          tabsConfig: kind === 'tab_container' ? tabsConfigValue : undefined,
           layout: DEFAULT_LAYOUT[kind],
         })
         toast.success(t('Widget added'))
@@ -716,7 +761,7 @@ export function WidgetDialog({
             </div>
           )}
 
-          {(kind === 'chart' || kind === 'tab_container') && (
+          {kind === 'chart' && (
             <div className='space-y-2'>
               <Label>{t('Chart type')}</Label>
               <Select
@@ -737,7 +782,7 @@ export function WidgetDialog({
             </div>
           )}
 
-          {((kind === 'chart' && chartType !== 'table') || kind === 'combo' || kind === 'tab_container') && (
+          {((kind === 'chart' && chartType !== 'table') || kind === 'combo') && (
             <div className='space-y-4'>
               <div className='grid grid-cols-2 gap-4'>
                 <div className='space-y-2'>
@@ -1172,24 +1217,110 @@ export function WidgetDialog({
 
           {kind === 'tab_container' && (
             <div className='space-y-3 rounded-md border border-primary/20 bg-primary/5 p-3.5'>
-              <div className='space-y-1.5'>
-                <Label htmlFor='widget-tab-list' className='font-semibold text-xs'>Nombres de Pestañas (separados por coma)</Label>
-                <Input
-                  id='widget-tab-list'
-                  value={targetLabel}
-                  onChange={(e) => setTargetLabel(e.target.value)}
-                  placeholder='Ej: Utilidad por Mes, Ventas por Año, Tabla General'
-                />
+              <div className='flex items-center justify-between'>
+                <Label className='font-semibold text-xs'>{t('Tabs')}</Label>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='h-7 gap-1 text-xs'
+                  onClick={() => setTabs((prev) => [...prev, { ...EMPTY_TAB }])}
+                >
+                  <Plus className='size-3.5' /> {t('Add tab')}
+                </Button>
               </div>
-              <div className='rounded-md bg-background/80 p-2.5 text-xs space-y-1 border border-border/40'>
-                <p className='font-medium text-foreground'>💡 Separar Métricas y Ejes por Pestaña:</p>
-                <p className='text-muted-foreground leading-normal'>
-                  • <strong>Varias Métricas (Eje Y):</strong> En "Columna del eje Y", puedes escribir varias métricas separadas por coma (ej. <code>Utilidad, total_remesa, Margen_bruto</code>).
+
+              {tabs.length === 0 && (
+                <p className='text-muted-foreground text-xs'>
+                  {t('No tabs yet. Add one to configure its metric and view.')}
                 </p>
-                <p className='text-muted-foreground leading-normal'>
-                  • <strong>Varios Ejes/Dimensiones (Eje X):</strong> En "Columna del eje X", puedes escribir varios ejes separados por coma (ej. <code>Mes, Anio, tipo_operacion</code>).
-                </p>
-              </div>
+              )}
+
+              {tabs.map((tab, i) => {
+                const patchTab = (patch: Partial<TabConfig>) =>
+                  setTabs((prev) => prev.map((tb, j) => (j === i ? { ...tb, ...patch } : tb)))
+                return (
+                  <div
+                    key={i}
+                    className='space-y-2 rounded-md border border-border/50 bg-background/70 p-2.5'
+                  >
+                    <div className='flex items-center gap-2'>
+                      <Input
+                        value={tab.name}
+                        onChange={(e) => patchTab({ name: e.target.value })}
+                        placeholder={`${t('Tab name')} ${i + 1}`}
+                        className='h-8 text-sm'
+                      />
+                      <Select
+                        value={tab.type}
+                        onValueChange={(v) => patchTab({ type: v as TabChartType })}
+                      >
+                        <SelectTrigger className='h-8 w-28 shrink-0 text-xs'>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TAB_TYPE_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon'
+                        className='size-8 shrink-0 text-muted-foreground hover:text-destructive'
+                        onClick={() => setTabs((prev) => prev.filter((_, j) => j !== i))}
+                        aria-label={t('Remove tab')}
+                      >
+                        <Trash2 className='size-4' />
+                      </Button>
+                    </div>
+                    <div className='grid grid-cols-3 gap-2'>
+                      <div className='space-y-1'>
+                        <Label className='text-[11px] text-muted-foreground'>{t('Metric (Y)')}</Label>
+                        <ColumnField
+                          value={tab.yKey}
+                          onChange={(v) => patchTab({ yKey: v })}
+                          columns={groupableColumnOptions}
+                          columnsLoading={columnsLoading}
+                          autoLabel={t('Auto-detect')}
+                          placeholder={t('e.g. Utilidad')}
+                        />
+                      </div>
+                      <div className='space-y-1'>
+                        <Label className='text-[11px] text-muted-foreground'>{t('Breakdown (X)')}</Label>
+                        <ColumnField
+                          value={tab.xKey}
+                          onChange={(v) => patchTab({ xKey: v })}
+                          columns={groupableColumnOptions}
+                          columnsLoading={columnsLoading}
+                          allowAuto
+                          autoLabel={t('None (single value)')}
+                          placeholder={t('e.g. mes')}
+                        />
+                      </div>
+                      <div className='space-y-1'>
+                        <Label className='text-[11px] text-muted-foreground'>{t('Leaf grain')}</Label>
+                        <ColumnField
+                          value={tab.granoKey}
+                          onChange={(v) => patchTab({ granoKey: v })}
+                          columns={groupableColumnOptions}
+                          columnsLoading={columnsLoading}
+                          allowAuto
+                          autoLabel={t('No leaf grain')}
+                          placeholder={t('e.g. manifiesto')}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+
+              <p className='text-muted-foreground text-[11px] leading-normal'>
+                {t('Leaf grain is required for leaf-level percentage metrics (e.g. Utilidad %) so they don\'t show 100% on every row.')}
+              </p>
             </div>
           )}
 

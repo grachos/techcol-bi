@@ -51,8 +51,23 @@ export function TabContainerWidget({ widget, activeFilters }: TabContainerWidget
     return measures[0]?.name || ''
   }, [widget.connectorId])
 
-  // Parsea las pestanas configuradas (nombres, metricas y dimensiones separadas por coma)
+  // Parsea las pestanas configuradas.
   const tabDefs = useMemo<TabDef[]>(() => {
+    // Esquema nuevo: una entrada estructurada por pestana. Cada una lleva su
+    // propia metrica, desglose, grano y tipo. El grano se recombina como
+    // segundo segmento de xKey ("desglose,grano") que currentTab vuelve a
+    // separar -- imprescindible para metricas de nivel hoja (ej. Utilidad %).
+    if (widget.tabsConfig && widget.tabsConfig.length > 0) {
+      return widget.tabsConfig.map((t, i) => ({
+        id: `tab-${i}`,
+        name: t.name || `Pestaña ${i + 1}`,
+        yKey: t.yKey || fallbackYKey || '',
+        xKey: t.granoKey ? `${t.xKey},${t.granoKey}` : t.xKey,
+        type: t.type === 'line' ? 'line' : t.type === 'table' ? 'table' : 'bar',
+      }))
+    }
+
+    // Esquema legado (widgets antiguos): listas separadas por coma.
     const rawNames = widget.targetLabel
       ? widget.targetLabel.split(',').map((s) => s.trim()).filter(Boolean)
       : []
@@ -93,7 +108,7 @@ export function TabContainerWidget({ widget, activeFilters }: TabContainerWidget
       result.push({ id: `tab-${i}`, name, yKey, xKey: xSpec, type })
     }
     return result
-  }, [widget.targetLabel, widget.yKey, widget.xKey, widget.chartType, fallbackYKey])
+  }, [widget.tabsConfig, widget.targetLabel, widget.yKey, widget.xKey, widget.chartType, fallbackYKey])
 
   const [activeTabId, setActiveTabId] = useState<string>('tab-0')
   const currentTab = useMemo(() => {

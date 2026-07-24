@@ -93,6 +93,7 @@ interface WidgetRow {
   target_value: string | number | null;
   target_label: string | null;
   filter_column: string | null;
+  tabs_config: string | unknown[] | null;
   layout: string | WidgetLayout;
 }
 
@@ -103,6 +104,50 @@ function parseLayout(raw: string | WidgetLayout): WidgetLayout {
 function parseFilters(raw: string | Record<string, unknown> | null): Record<string, unknown> {
   if (!raw) return {};
   return typeof raw === "string" ? JSON.parse(raw) : raw;
+}
+
+const TAB_TYPES = ["bar", "line", "table"] as const;
+type TabType = (typeof TAB_TYPES)[number];
+
+interface TabConfig {
+  name: string;
+  yKey: string;
+  xKey: string;
+  granoKey: string;
+  type: TabType;
+}
+
+const MAX_TABS = 12;
+
+/**
+ * Valida/normaliza la config de pestanas del tab_container que llega del
+ * cliente. Recorta a strings, tipos permitidos y un tope de pestanas: nunca se
+ * guarda JSON arbitrario del body. Devuelve null si no es un array (el campo no
+ * se toca en ese caso).
+ */
+function normalizeTabsConfig(raw: unknown): TabConfig[] | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.slice(0, MAX_TABS).map((t) => {
+    const o = (t ?? {}) as Record<string, unknown>;
+    const type = TAB_TYPES.includes(o.type as TabType) ? (o.type as TabType) : "bar";
+    return {
+      name: typeof o.name === "string" ? o.name.slice(0, 120) : "",
+      yKey: typeof o.yKey === "string" ? o.yKey : "",
+      xKey: typeof o.xKey === "string" ? o.xKey : "",
+      granoKey: typeof o.granoKey === "string" ? o.granoKey : "",
+      type,
+    };
+  });
+}
+
+function parseTabsConfig(raw: unknown): TabConfig[] | null {
+  if (raw == null) return null;
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return normalizeTabsConfig(parsed);
+  } catch {
+    return null;
+  }
 }
 
 function parseTags(raw: string | null): string[] {
@@ -172,7 +217,7 @@ router.get("/share/:token", async (req: Request, res: Response) => {
 
     const [widgetRows]: any = await pool.query(
       `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
-              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.layout,
+              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.tabs_config, w.layout,
               c.name AS connector_name, c.type AS connector_type
        FROM dashboard_widgets w
        LEFT JOIN connectors c ON c.id = w.connector_id
@@ -196,6 +241,7 @@ router.get("/share/:token", async (req: Request, res: Response) => {
       targetValue: w.target_value === null ? null : Number(w.target_value),
       targetLabel: w.target_label,
       filterColumn: w.filter_column,
+      tabsConfig: parseTabsConfig(w.tabs_config),
       layout: parseLayout(w.layout),
     }));
 
@@ -420,7 +466,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
     const [widgetRows]: any = await pool.query(
       `SELECT w.id, w.dashboard_id, w.connector_id, w.kind, w.title, w.chart_type, w.color,
-              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.layout,
+              w.x_key, w.y_key, w.aggregation, w.target_value, w.target_label, w.filter_column, w.tabs_config, w.layout,
               c.name AS connector_name, c.type AS connector_type
        FROM dashboard_widgets w
        LEFT JOIN connectors c ON c.id = w.connector_id
@@ -444,6 +490,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       targetValue: w.target_value === null ? null : Number(w.target_value),
       targetLabel: w.target_label,
       filterColumn: w.filter_column,
+      tabsConfig: parseTabsConfig(w.tabs_config),
       layout: parseLayout(w.layout),
     }));
 
@@ -542,6 +589,7 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
     targetValue,
     targetLabel,
     filterColumn,
+    tabsConfig,
     layout,
   } = req.body ?? {};
 
@@ -581,10 +629,11 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
       return res.status(404).json({ error: "Dashboard no encontrado" });
     }
 
+    const tabs = normalizeTabsConfig(tabsConfig);
     const [result]: any = await pool.query(
       `INSERT INTO dashboard_widgets
-        (dashboard_id, connector_id, kind, title, chart_type, color, x_key, y_key, aggregation, target_value, target_label, filter_column, layout)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (dashboard_id, connector_id, kind, title, chart_type, color, x_key, y_key, aggregation, target_value, target_label, filter_column, tabs_config, layout)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.params.id,
         connectorId ?? null,
@@ -598,6 +647,7 @@ router.post("/:id/widgets", requireAdmin, async (req: Request, res: Response) =>
         targetValue ?? null,
         targetLabel ?? null,
         filterColumn ?? null,
+        tabs ? JSON.stringify(tabs) : null,
         JSON.stringify(layout),
       ]
     );
@@ -621,6 +671,7 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
     targetValue,
     targetLabel,
     filterColumn,
+    tabsConfig,
     layout,
   } = req.body ?? {};
 
@@ -695,6 +746,11 @@ router.put("/:id/widgets/:widgetId", requireAdmin, async (req: Request, res: Res
     if (filterColumn !== undefined) {
       fields.push("filter_column = ?");
       values.push(filterColumn);
+    }
+    if (tabsConfig !== undefined) {
+      const tabs = normalizeTabsConfig(tabsConfig);
+      fields.push("tabs_config = ?");
+      values.push(tabs ? JSON.stringify(tabs) : null);
     }
     if (layout !== undefined) {
       fields.push("layout = ?");

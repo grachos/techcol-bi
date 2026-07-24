@@ -143,6 +143,26 @@ export interface WidgetLayout {
   h: number
 }
 
+/** Tipo de vista de una pestana del widget tab_container. */
+export type TabChartType = 'bar' | 'line' | 'table'
+
+/**
+ * Configuracion de UNA pestana del widget tab_container. Reemplaza el viejo
+ * esquema de listas separadas por coma en targetLabel/yKey/xKey/chartType, que
+ * chocaba con la codificacion "desglose,grano" de xKey. Cada pestana lleva su
+ * propia metrica, dimension, grano hoja y tipo de vista.
+ */
+export interface TabConfig {
+  name: string
+  /** metrica (columna o medida calculada) */
+  yKey: string
+  /** dimension de desglose (eje X); '' = valor unico sin desglose */
+  xKey: string
+  /** grano hoja para metricas de nivel hoja (ej. Utilidad %); '' = ninguno */
+  granoKey: string
+  type: TabChartType
+}
+
 export interface Widget {
   id: number
   connectorId: number | null
@@ -159,6 +179,8 @@ export interface Widget {
   targetValue: number | null
   targetLabel: string | null
   filterColumn: string | null
+  /** solo kind='tab_container': una entrada por pestana */
+  tabsConfig?: TabConfig[] | null
   layout: WidgetLayout
 }
 
@@ -188,6 +210,7 @@ export interface WidgetPayload {
   targetValue?: number | null
   targetLabel?: string | null
   filterColumn?: string | null
+  tabsConfig?: TabConfig[] | null
   layout: WidgetLayout
 }
 
@@ -252,6 +275,7 @@ export const dashboardApi = {
       targetValue: number | null
       targetLabel: string | null
       filterColumn: string | null
+      tabsConfig: TabConfig[] | null
       layout: WidgetLayout
     }>
   ): Promise<{ updated: boolean }> =>

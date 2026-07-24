@@ -176,6 +176,12 @@ ALTER TABLE dashboard_widgets
 ALTER TABLE dashboard_widgets
   ADD COLUMN IF NOT EXISTS target_label VARCHAR(255) NULL AFTER target_value;
 
+-- Config por pestana del widget tab_container: [{name,yKey,xKey,granoKey,type}].
+-- Reemplaza el viejo esquema de listas separadas por coma (targetLabel/yKey/
+-- xKey/chartType), que no podia representar grano por pestana sin ambiguedad.
+ALTER TABLE dashboard_widgets
+  ADD COLUMN IF NOT EXISTS tabs_config JSON NULL AFTER filter_column;
+
 -- Links compartibles de dashboards (vista publica de solo lectura)
 CREATE TABLE IF NOT EXISTS dashboard_shares (
   id INT PRIMARY KEY AUTO_INCREMENT,
