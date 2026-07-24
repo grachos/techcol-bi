@@ -529,7 +529,10 @@ export function WidgetDialog({
     // xKey: charts/combo/progress/map + calendar + tree_grid (grupos) +
     // stat (eje X de desglose + grano, codificados como "eje,grano" -- ver
     // stat-widget.tsx); yKey: charts/combo/progress/map + stat + tree_grid
-    const wantsXKey = hasXY || hasColumnLists || kind === 'calendar' || kind === 'stat'
+    // text_image guarda la URL de la imagen en xKey (ver TextImageWidget); sin
+    // esto se enviaba xKey: undefined y la URL nunca se persistia.
+    const wantsXKey =
+      hasXY || hasColumnLists || kind === 'calendar' || kind === 'stat' || kind === 'text_image'
     const wantsYKey = hasXY || hasColumnLists || kind === 'stat'
     const xKeyValue = hasColumnLists
       ? groupByColumns.join(',')
