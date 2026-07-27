@@ -30,11 +30,18 @@ function toRows(data: unknown): Row[] {
  * distintas a las de otro deja de compartir su fetch -- correcto, porque no
  * pedian lo mismo; pero si TODOS los widgets del conector piden las mismas
  * columnas (o ninguno pide `columns`), el fetch sigue compartido como antes.
+ *
+ * `enabled`: opcional -- permite a un widget declarar que en su configuracion
+ * actual NO va a leer las filas crudas (p.ej. una grafica agregada, que se
+ * pinta con el resultado de /aggregate). Sin esto la peticion salia igual y se
+ * bajaba el dataset entero para descartarlo; el hook no se puede llamar
+ * condicionalmente, asi que la condicion viaja como parametro.
  */
 export function useConnectorData(
   connectorId: number | null | undefined,
   params: RuntimeParams = {},
-  columns?: string[]
+  columns?: string[],
+  enabled = true
 ) {
   const shareToken = useShareToken()
   const fullParams = columns?.length ? { ...params, columns: columns.join(',') } : params
@@ -45,7 +52,7 @@ export function useConnectorData(
       shareToken
         ? biApi.dashboard.dataShared(shareToken, connectorId as number, fullParams)
         : biApi.data(connectorId as number, fullParams),
-    enabled: connectorId != null,
+    enabled: enabled && connectorId != null,
     staleTime: Infinity,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
@@ -64,6 +71,8 @@ export function useConnectorData(
       : null,
     // Solo la carga inicial: en los refrescos de fondo se conservan los datos
     // previos, asi que mostrar "cargando" haria parpadear el widget.
-    isLoading: query.isPending && connectorId != null,
+    // Una query deshabilitada se queda en `pending` para siempre (nunca corre),
+    // asi que sin el `enabled &&` un widget apagado se veria "cargando" eterno.
+    isLoading: enabled && query.isPending && connectorId != null,
   }
 }

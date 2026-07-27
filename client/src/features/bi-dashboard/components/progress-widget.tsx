@@ -59,7 +59,7 @@ export function ProgressWidget({ widget, activeFilters }: ProgressWidgetProps) {
     )
 
   const { rows, filteredRows, error: rawError, isLoading: rawLoading, needsDateFilter: rawNeedsDateFilter } =
-    useWidgetData(widget, activeFilters, hasKeys ? undefined : undefined)
+    useWidgetData(widget, activeFilters, undefined, !hasKeys)
 
   if (hasKeys) {
     if (aggLoading) return <WidgetLoading />

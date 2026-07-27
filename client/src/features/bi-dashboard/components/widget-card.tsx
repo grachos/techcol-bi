@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, memo, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Area,
@@ -100,7 +100,7 @@ interface WidgetCardProps {
   isSharedView?: boolean
 }
 
-export function WidgetCard({
+function WidgetCardInner({
   widget,
   activeFilters,
   onFilterChange,
@@ -238,6 +238,27 @@ export function WidgetCard({
   )
 }
 
+/**
+ * Sin memo, CUALQUIER estado del dashboard (abrir un dialogo, entrar en modo
+ * edicion, abrir el panel de metricas, terminar de cargar la lista de
+ * conectores) repintaba el arbol SVG de todos los Recharts en pantalla.
+ *
+ * El comparador ignora A PROPOSITO las props de funcion: en el dashboard se
+ * crean como flechas inline dentro del .map(), asi que su identidad cambia en
+ * cada render y un shallow compare por defecto no saltaria nunca. Es seguro
+ * porque cada una solo cierra sobre `widget` -- que SI se compara aqui, por
+ * referencia -- y sobre setters de React, que ya son estables. Si alguna vez
+ * un callback pasa a depender de otro estado, tiene que entrar en esta lista.
+ */
+export const WidgetCard = memo(
+  WidgetCardInner,
+  (prev, next) =>
+    prev.widget === next.widget &&
+    prev.activeFilters === next.activeFilters &&
+    prev.isEditing === next.isEditing &&
+    prev.isSharedView === next.isSharedView
+)
+
 function ChartWidgetBody({
   widget,
   activeFilters,
@@ -278,18 +299,17 @@ function ChartWidgetBody({
     isAggregatedChart ? statQuery : { yKey: null }
   )
 
-  // Solo se consulta useWidgetData para tablas crudas (chartType === 'table')
+  // Solo se consulta useWidgetData para tablas crudas (chartType === 'table').
+  // El `enabled` es lo que hace cierta esa frase: hasta ahora la peticion salia
+  // SIEMPRE -- tambien para graficas agregadas, que se pintan con aggResult --
+  // y bajaba el dataset completo del conector para no leerlo nunca.
   const {
     rows: rawRows,
     filteredRows,
     error: rawError,
     isLoading: rawLoading,
     needsDateFilter: rawNeedsDateFilter,
-  } = useWidgetData(
-    widget,
-    activeFilters,
-    isAggregatedChart ? undefined : undefined
-  )
+  } = useWidgetData(widget, activeFilters, undefined, !isAggregatedChart)
 
   const compact = widget.layout.h <= 3
 

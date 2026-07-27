@@ -46,7 +46,7 @@ import { WidgetDialog } from './components/widget-dialog'
 
 
 export function BiDashboard() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isMobile = useIsMobile()
   const search = useSearch({ from: '/_authenticated/bi/' })
   const [dashboards, setDashboards] = useState<DashboardSummary[]>([])
@@ -78,28 +78,50 @@ export function BiDashboard() {
       metricsWidget?.connectorType === 'rest_api' ? filtersToParams(activeFilters) : {},
     [metricsWidget, activeFilters]
   )
+  // Solo se piden las filas con el panel ABIERTO. Este es el unico consumidor
+  // de filas crudas que queda en el dashboard, y traerlas siempre significaba
+  // bajar el dataset entero del primer conector en cada carga -- para un panel
+  // que la mayoria de las veces no se abre. Al abrirlo, el sheet ya muestra su
+  // propio estado de carga con `metricsLoading`.
   const { rows: metricsRows, isLoading: metricsLoading } = useConnectorData(
     metricsWidget?.connectorId,
-    metricsParams
+    metricsParams,
+    undefined,
+    metricsOpen
   )
-  const metricsModel = metricsWidget?.connectorId
-    ? getConnectorSemanticModel(metricsWidget.connectorId, metricsRows)
-    : null
+  // Inferir el modelo recorre las columnas de la muestra; sin useMemo se
+  // rehacia en cada render del dashboard (incluido cada tecla del editor).
+  const metricsConnectorId = metricsWidget?.connectorId ?? null
+  const metricsModel = useMemo(
+    () =>
+      metricsConnectorId
+        ? getConnectorSemanticModel(metricsConnectorId, metricsRows)
+        : null,
+    [metricsConnectorId, metricsRows]
+  )
   const metricsConnectorName =
     connectors.find((c) => c.id === metricsWidget?.connectorId)?.name ?? null
 
-  const handleFilterChange = (
-    column: string,
-    value: ActiveFilterValue | null
-  ) => {
-    setActiveFilters((prev) => {
-      if (value === null) {
-        const { [column]: _removed, ...rest } = prev
+  // Identidad estable (solo usa el setter funcional): si cambiara en cada
+  // render anularia el memo() de WidgetCard, que es justo lo que evita
+  // repintar todos los Recharts al abrir un dialogo o entrar en modo edicion.
+  const handleFilterChange = useCallback(
+    (column: string, value: ActiveFilterValue | null) => {
+      setActiveFilters((prev) => {
+        if (value !== null) return { ...prev, [column]: value }
+        // Devolver `prev` tal cual cuando la columna ya no estaba evita una
+        // identidad nueva de activeFilters -- que seria una ronda de refetch
+        // en todos los widgets para terminar con los mismos filtros.
+        if (!(column in prev)) return prev
+        const rest: ActiveFilters = {}
+        for (const key of Object.keys(prev)) {
+          if (key !== column) rest[key] = prev[key]
+        }
         return rest
-      }
-      return { ...prev, [column]: value }
-    })
-  }
+      })
+    },
+    []
+  )
 
   // Persistir el estado actual
   useDashboardPersistence(selectedId, activeFilters)
@@ -195,7 +217,14 @@ export function BiDashboard() {
 
   const handleDeleteWidget = async (widget: Widget) => {
     if (!selectedId) return
-    if (!window.confirm(t('Delete widget "{{title}}"?', { title: widget.title })))
+    // i18n.t y no la `t` del render: este callback queda capturado dentro del
+    // memo() de WidgetCard, asi que la `t` de su render podria ser de un idioma
+    // ya cambiado. i18n.t siempre resuelve con el idioma actual.
+    if (
+      !window.confirm(
+        i18n.t('Delete widget "{{title}}"?', { title: widget.title })
+      )
+    )
       return
     try {
       await dashboardApi.removeWidget(selectedId, widget.id)

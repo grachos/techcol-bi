@@ -128,19 +128,26 @@ export function DateFilterWidget({ widget, activeFilters, onChange }: DateFilter
         </PopoverContent>
       </Popover>
 
+      {/* Mismo tamaño reducido que el filtro de seleccion: los dos widgets de
+          filtro comparten fila en el dashboard y tienen que verse iguales. */}
       <div className='flex w-full gap-1'>
         <Button
           size='sm'
-          className='flex-1'
+          className='h-6 flex-1 px-2 text-xs'
           onClick={handleApply}
           disabled={!isDirty}
         >
-          <Search className='me-1 size-3.5' />
+          <Search className='me-1 size-3' />
           {t('Query')}
         </Button>
         {(applied?.from || range?.from) && (
-          <Button variant='ghost' size='sm' onClick={handleClear}>
-            <X className='size-3.5' />
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-6 px-1.5'
+            onClick={handleClear}
+          >
+            <X className='size-3' />
             <span className='sr-only'>{t('Clear filter')}</span>
           </Button>
         )}

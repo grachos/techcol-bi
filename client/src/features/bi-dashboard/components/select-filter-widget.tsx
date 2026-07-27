@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Search, X } from 'lucide-react'
 import { useDistinctValues } from '@/hooks/use-distinct-values'
 import { monthIndexEs } from '@/lib/semantic-layer/expression'
 import { type Widget } from '@/lib/dashboard-api'
@@ -20,6 +20,12 @@ interface SelectFilterWidgetProps {
   onChange: (column: string, value: ActiveFilterValue | null) => void
 }
 
+function sameValues(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false
+  for (const v of a) if (!b.has(v)) return false
+  return true
+}
+
 export function SelectFilterWidget({
   widget,
   activeFilters,
@@ -35,9 +41,16 @@ export function SelectFilterWidget({
     activeFilters
   )
   const restoredValue = widget.filterColumn ? activeFilters[widget.filterColumn] : undefined
-  const [selectedValues, setSelectedValues] = useState<Set<string>>(
-    () => new Set(restoredValue?.type === 'select' ? restoredValue.values : [])
-  )
+  const restored = () =>
+    new Set(restoredValue?.type === 'select' ? restoredValue.values : [])
+
+  // Igual que el filtro de fecha: la seleccion se ACUMULA en local y solo se
+  // publica al pulsar "Consultar". Marcando casilla por casilla se disparaba
+  // un cambio de activeFilters por clic, y cada uno invalidaba la queryKey de
+  // TODOS los widgets del dashboard: marcar 5 valores = 5 rondas completas de
+  // peticiones y de repintado. Ahora es una sola, cuando el usuario termina.
+  const [selectedValues, setSelectedValues] = useState<Set<string>>(restored)
+  const [appliedValues, setAppliedValues] = useState<Set<string>>(restored)
   const [popoverOpen, setPopoverOpen] = useState(false)
 
   // Si los valores son nombres de mes se ordenan cronologicamente; alfabetico
@@ -51,6 +64,14 @@ export function SelectFilterWidget({
       : sorted.sort()
   }, [values])
 
+  const publish = (values: Set<string>) => {
+    if (!widget.filterColumn) return
+    onChange(
+      widget.filterColumn,
+      values.size === 0 ? null : { type: 'select', values: Array.from(values) }
+    )
+  }
+
   // Una seleccion persistida (guardada en el servidor como "ultima consulta")
   // puede quedar obsoleta: si el valor ya no aparece entre las filas actuales
   // (metrica editada, formato de fecha corregido, dato borrado en la fuente),
@@ -58,46 +79,46 @@ export function SelectFilterWidget({
   // aunque se amplie el rango de fechas -- sin mostrar ningun error, porque
   // desde la perspectiva del widget simplemente "no hay filas". Se descartan
   // los valores obsoletos en cuanto se detectan, en vez de dejar un filtro
-  // fantasma imposible de diagnosticar desde la UI.
+  // fantasma imposible de diagnosticar desde la UI. Esta limpieza SI publica
+  // sola: corrige un filtro ya aplicado, no es una eleccion pendiente.
   useEffect(() => {
     if (isLoading || needsDateFilter || error || options.length === 0) return
-    const stale = Array.from(selectedValues).filter((v) => !options.includes(v))
-    if (stale.length === 0) return
-    const cleaned = new Set(selectedValues)
-    stale.forEach((v) => cleaned.delete(v))
-    setSelectedValues(cleaned)
-    updateFilter(cleaned)
+    const valid = new Set(options)
+    const cleanedApplied = new Set(
+      Array.from(appliedValues).filter((v) => valid.has(v))
+    )
+    if (cleanedApplied.size === appliedValues.size) return
+    setSelectedValues(
+      new Set(Array.from(selectedValues).filter((v) => valid.has(v)))
+    )
+    setAppliedValues(cleanedApplied)
+    publish(cleanedApplied)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options])
 
   const handleToggleValue = (value: string) => {
-    const newSelected = new Set(selectedValues)
-    if (newSelected.has(value)) {
-      newSelected.delete(value)
-    } else {
-      newSelected.add(value)
-    }
-    setSelectedValues(newSelected)
-    updateFilter(newSelected)
+    const next = new Set(selectedValues)
+    if (next.has(value)) next.delete(value)
+    else next.add(value)
+    setSelectedValues(next)
   }
 
   const handleToggleAll = () => {
-    if (selectedValues.size === options.length) {
-      setSelectedValues(new Set())
-      updateFilter(new Set())
-    } else {
-      const newSelected = new Set(options)
-      setSelectedValues(newSelected)
-      updateFilter(newSelected)
-    }
+    setSelectedValues(
+      selectedValues.size === options.length ? new Set() : new Set(options)
+    )
   }
 
-  const updateFilter = (values: Set<string>) => {
-    if (!widget.filterColumn) return
-    onChange(
-      widget.filterColumn,
-      values.size === 0 ? null : { type: 'select', values: Array.from(values) }
-    )
+  const handleApply = () => {
+    setAppliedValues(new Set(selectedValues))
+    publish(selectedValues)
+    setPopoverOpen(false)
+  }
+
+  const handleClear = () => {
+    setSelectedValues(new Set())
+    setAppliedValues(new Set())
+    publish(new Set())
   }
 
   if (!widget.filterColumn || !widget.connectorId) {
@@ -117,6 +138,7 @@ export function SelectFilterWidget({
   }
 
   const isAllSelected = selectedValues.size === options.length
+  const isDirty = !sameValues(selectedValues, appliedValues)
   const displayText =
     selectedValues.size === 0
       ? t('All')
@@ -125,7 +147,7 @@ export function SelectFilterWidget({
         : `${selectedValues.size} ${t('selected')}`
 
   return (
-    <div className='flex h-full flex-col items-center justify-center gap-3'>
+    <div className='flex h-full flex-col items-center justify-center gap-2'>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -171,7 +193,34 @@ export function SelectFilterWidget({
           </div>
         </PopoverContent>
       </Popover>
-      <p className='text-muted-foreground text-xs'>
+
+      {/* h-6/text-xs y no el `sm` del boton (h-8/text-sm): dentro de la tarjeta
+          todo lo demas -- titulo, ayuda, opciones -- es text-xs, asi que el
+          tamaño por defecto se veia fuera de escala. */}
+      <div className='flex w-full gap-1'>
+        <Button
+          size='sm'
+          className='h-6 flex-1 px-2 text-xs'
+          onClick={handleApply}
+          disabled={!isDirty}
+        >
+          <Search className='me-1 size-3' />
+          {t('Query')}
+        </Button>
+        {(appliedValues.size > 0 || selectedValues.size > 0) && (
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-6 px-1.5'
+            onClick={handleClear}
+          >
+            <X className='size-3' />
+            <span className='sr-only'>{t('Clear filter')}</span>
+          </Button>
+        )}
+      </div>
+
+      <p className='text-muted-foreground text-xs truncate'>
         {t('Filters column "{{column}}"', { column: widget.filterColumn })}
       </p>
     </div>

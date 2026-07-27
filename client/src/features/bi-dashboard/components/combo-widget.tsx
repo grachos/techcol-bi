@@ -63,7 +63,7 @@ export function ComboWidget({ widget, activeFilters }: ComboWidgetProps) {
     )
 
   const { rows, filteredRows, error: rawError, isLoading: rawLoading, needsDateFilter: rawNeedsDateFilter } =
-    useWidgetData(widget, activeFilters, hasKeys ? undefined : undefined)
+    useWidgetData(widget, activeFilters, undefined, !hasKeys)
 
   const barColor = getWidgetColorCss(widget.color).solid
   const lineColor = getWidgetColorCss('pink').solid
