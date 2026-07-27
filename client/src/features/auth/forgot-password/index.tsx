@@ -1,10 +1,8 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -28,18 +26,6 @@ export function ForgotPassword() {
         <CardContent>
           <ForgotPasswordForm />
         </CardContent>
-        <CardFooter>
-          <p className='mx-auto px-8 text-center text-sm text-balance text-muted-foreground'>
-            {t("Don't have an account?")}{' '}
-            <Link
-              to='/sign-up'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              {t('Sign up')}
-            </Link>
-            .
-          </p>
-        </CardFooter>
       </Card>
     </AuthLayout>
   )

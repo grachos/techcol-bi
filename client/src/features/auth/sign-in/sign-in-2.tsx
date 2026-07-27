@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
@@ -22,34 +21,10 @@ export function SignIn2() {
             <h2 className='text-lg font-semibold tracking-tight'>{t('Sign in')}</h2>
             <p className='text-sm text-muted-foreground'>
               {t('Enter your email and password below to log into')}{' '}
-              <br className='max-sm:hidden' /> {t('your account.')}{' '}
-              {t("Don't have an account?")}{' '}
-              <Link
-                to='/sign-up'
-                className='text-nowrap underline underline-offset-4 hover:text-primary'
-              >
-                {t('Sign Up')}
-              </Link>
+              <br className='max-sm:hidden' /> {t('your account.')}
             </p>
           </div>
           <UserAuthForm />
-          <p className='px-8 text-center text-sm text-muted-foreground'>
-            {t('By clicking sign in, you agree to our')}{' '}
-            <a
-              href='/terms'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              {t('Terms of Service')}
-            </a>{' '}
-            {t('and')}{' '}
-            <a
-              href='/privacy'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              {t('Privacy Policy')}
-            </a>
-            .
-          </p>
         </div>
       </div>
 

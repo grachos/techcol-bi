@@ -44,9 +44,6 @@ export const authApi = {
   login: (email: string, password: string): Promise<LoginResult> =>
     post('/api/auth/login', { email, password }).then((r) => handle(r)),
 
-  setupPassword: (email: string, password: string): Promise<LoginResult> =>
-    post('/api/auth/setup-password', { email, password }).then((r) => handle(r)),
-
   logout: (): Promise<{ ok: true }> =>
     post('/api/auth/logout').then((r) => handle(r)),
 

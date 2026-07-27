@@ -97,18 +97,26 @@ export function UserAuthForm({
           control={form.control}
           name='password'
           render={({ field }) => (
-            <FormItem className='relative'>
-              <FormLabel>{t('Password')}</FormLabel>
+            <FormItem>
+              {/* Fila flex en vez de <Link> absoluto: la version en espanol
+                  de "Forgot password?" ("Olvidaste tu contrasena?") es mucho
+                  mas larga que la en ingles, y con `absolute` su borde
+                  izquierdo terminaba encima de la etiqueta "Contrasena". Un
+                  flex con justify-between empuja el link a la derecha sin
+                  invadir el espacio de la etiqueta, sea cual sea su ancho. */}
+              <div className='flex items-center justify-between gap-2'>
+                <FormLabel>{t('Password')}</FormLabel>
+                <Link
+                  to='/forgot-password'
+                  className='text-sm font-medium text-muted-foreground hover:opacity-75'
+                >
+                  {t('Forgot password?')}
+                </Link>
+              </div>
               <FormControl>
                 <PasswordInput placeholder='********' {...field} />
               </FormControl>
               <FormMessage />
-              <Link
-                to='/forgot-password'
-                className='absolute inset-e-0 -top-0.5 text-sm font-medium text-muted-foreground hover:opacity-75'
-              >
-                {t('Forgot password?')}
-              </Link>
             </FormItem>
           )}
         />
